@@ -211,7 +211,7 @@ public partial class FontPage : UserControl {
 			return;
 
 		// Maybe user had changed name via dialog
-		className = Path.GetFileNameWithoutExtension(className);
+		className = Path.GetFileNameWithoutExtension(dialog.FileName);
 
 		// Bitmap
 		int x = 0;
@@ -258,7 +258,7 @@ public partial class FontPage : UserControl {
 			if (i > 0)
 				glyphsSB.AppendLine();
 
-			glyphsSB.Append($"\t\t\tGlyph({bitmapGlyphBitIndex}, {width}){(i < GlyphsFormattedTexts.Length - 1 ? "," : "")} // {(formattedText.Text == "\\" ? "backslash" : formattedText.Text)}");
+			glyphsSB.Append($"\t\t\tyoba::Glyph({bitmapGlyphBitIndex}, {width}){(i < GlyphsFormattedTexts.Length - 1 ? "," : "")} // {(formattedText.Text == "\\" ? "backslash" : formattedText.Text)}");
 
 			if (width > 0) {
 				pixelStride = width * 4;
@@ -297,9 +297,9 @@ public partial class FontPage : UserControl {
 		using StreamWriter streamWriter = new(fileStream, Encoding.UTF8);
 
 		await streamWriter.WriteAsync($$"""
-class {{className}} : public Font {
+class {{className}} : public yoba::Font {
 	public:
-		{{className}}() : Font(
+		{{className}}() : yoba::Font(
 			{{App.Settings.Font.From}},
 			{{App.Settings.Font.To}},
 			{{GlyphsHeightTotal}},
@@ -310,7 +310,7 @@ class {{className}} : public Font {
 		}
 
 	private:
-		PROGMEM const Glyph _glyphs[{{GlyphsTotal}}] = {
+		PROGMEM const yoba::Glyph _glyphs[{{GlyphsTotal}}] = {
 {{glyphsSB}}
 		};
 
