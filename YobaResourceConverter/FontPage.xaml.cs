@@ -76,6 +76,8 @@ public partial class FontPage : UserControl {
 	Typeface? GlyphsTypeface = null;
 	RenderTargetBitmap? GlyphsBitmap = null;
 
+	const int GLYPHS_SPACING = 2;
+
 	int
 		GlyphsTotal = 94,
 		GlyphsWidthTotal = 1,
@@ -159,14 +161,14 @@ public partial class FontPage : UserControl {
 				width = (int) Math.Ceiling(formattedText.WidthIncludingTrailingWhitespace);
 				height = (int) Math.Ceiling(formattedText.Height);
 
-				GlyphsWidthTotal += width;
+				GlyphsWidthTotal += width + GLYPHS_SPACING;
 				GlyphsHeightTotal = Math.Max(GlyphsHeightTotal, height);
 
 				if (width > 0) {
 					drawingContext.DrawText(formattedText, new(x, 0));
 				}
 
-				x += width;
+				x += width + GLYPHS_SPACING;
 			}
 		}
 
@@ -283,7 +285,7 @@ public partial class FontPage : UserControl {
 				bitmapGlyphBitIndex += width * GlyphsHeightTotal;
 			}
 
-			x += width;
+			x += width + GLYPHS_SPACING;
 		}
 
 		// Last byte
