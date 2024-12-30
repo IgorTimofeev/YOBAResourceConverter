@@ -53,6 +53,10 @@ public partial class FontPage : UserControl {
 			EnqueueRender();
 		};
 
+		NamespaceTextBox.TextChanged += (s, e) => {
+			App.Settings.Font.Namespace = string.IsNullOrWhiteSpace(NamespaceTextBox.Text) ? null : NamespaceTextBox.Text;
+		};
+
 		void addTextBoxRenderCallback(TextBox textBox, Action<int> valueSetter) {
 			textBox.TextChanged += (s, e) => {
 				if (
@@ -91,6 +95,7 @@ public partial class FontPage : UserControl {
 		GlyphsFromTextBox.Text = App.Settings.Font.From.ToString();
 		GlyphsToTextBox.Text = App.Settings.Font.To.ToString();
 		FontSizeTextBox.Text = App.Settings.Font.Size.ToString();
+		NamespaceTextBox.Text = App.Settings.Font.Namespace;
 
 		// Font families
 		int settingsFontFamilyCounter = 0;
@@ -215,12 +220,18 @@ public partial class FontPage : UserControl {
 		// Maybe user had changed name via dialog
 		className = Path.GetFileNameWithoutExtension(dialog.FileName);
 
+		var haveNamespace = !string.IsNullOrWhiteSpace(App.Settings.Font.Namespace);
+		var namespaceIsYoba = App.Settings.Font.Namespace == "yoba";
+		var globalTabulation = haveNamespace ? "\t" : string.Empty;
+		var privateFieldsTabulation = new string('\t', haveNamespace ? 4 : 3);
+		var namespacePrefix = namespaceIsYoba ? string.Empty : "yoba::";
+
 		// Bitmap
 		int x = 0;
 
 		StringBuilder
 			glyphsSB = new(),
-			bitmapSB = new("\t\t\t");
+			bitmapSB = new(privateFieldsTabulation);
 
 		int bitmapGlyphBitIndex = 0;
 		int bitmapByteIndex = 0;
@@ -241,7 +252,7 @@ public partial class FontPage : UserControl {
 
 			if (bitmapByteIndex > 15) {
 				bitmapByteIndex = 0;
-				bitmapSB.Append($"{Environment.NewLine}\t\t\t");
+				bitmapSB.Append($"{Environment.NewLine}{privateFieldsTabulation}");
 			}
 			else {
 				bitmapSB.Append(' ');
@@ -260,7 +271,7 @@ public partial class FontPage : UserControl {
 			if (i > 0)
 				glyphsSB.AppendLine();
 
-			glyphsSB.Append($"\t\t\tyoba::Glyph({bitmapGlyphBitIndex}, {width}){(i < GlyphsFormattedTexts.Length - 1 ? "," : "")} // {(formattedText.Text == "\\" ? "backslash" : formattedText.Text)}");
+			glyphsSB.Append($"{privateFieldsTabulation}{namespacePrefix}Glyph({bitmapGlyphBitIndex}, {width}){(i < GlyphsFormattedTexts.Length - 1 ? "," : "")} // {(formattedText.Text == "\\" ? "backslash" : formattedText.Text)}");
 
 			if (width > 0) {
 				pixelStride = width * 4;
@@ -296,30 +307,45 @@ public partial class FontPage : UserControl {
 		Directory.CreateDirectory(Path.GetDirectoryName(dialog.FileName) ?? "");
 
 		using FileStream fileStream = new(dialog.FileName, FileMode.Create, FileAccess.Write, FileShare.None);
-		using StreamWriter streamWriter = new(fileStream, Encoding.UTF8);
+		using BufferedStream bufferedStream = new(fileStream, 8192);
+		using StreamWriter streamWriter = new(bufferedStream, Encoding.UTF8);
 
-		await streamWriter.WriteAsync($$"""
-class {{className}} : public yoba::Font {
-	public:
-		{{className}}() : yoba::Font(
-			{{App.Settings.Font.From}},
-			{{App.Settings.Font.To}},
-			{{GlyphsHeightTotal}},
-			_glyphs,
-			_bitmap
-		) {
-			
+		await streamWriter.WriteAsync($"#pragma once{Environment.NewLine}{Environment.NewLine}");
+
+		
+		if (haveNamespace) {
+			if (namespaceIsYoba)
+				await streamWriter.WriteAsync($"#include \"../../font.h\"{Environment.NewLine}{Environment.NewLine}");
+
+			await streamWriter.WriteAsync($"namespace {App.Settings.Font.Namespace} {{{Environment.NewLine}");
 		}
 
-	private:
-		PROGMEM const yoba::Glyph _glyphs[{{GlyphsTotal}}] = {
+		await streamWriter.WriteAsync($$"""
+{{globalTabulation}}class {{className}} : public {{namespacePrefix}}Font {
+{{globalTabulation}}	public:
+{{globalTabulation}}		{{className}}() : {{namespacePrefix}}Font(
+{{globalTabulation}}			{{App.Settings.Font.From}},
+{{globalTabulation}}			{{App.Settings.Font.To}},
+{{globalTabulation}}			{{GlyphsHeightTotal}},
+{{globalTabulation}}			_glyphs,
+{{globalTabulation}}			_bitmap
+{{globalTabulation}}		) {
+{{globalTabulation}}			
+{{globalTabulation}}		}
+{{globalTabulation}}
+{{globalTabulation}}	private:
+{{globalTabulation}}		PROGMEM const {{namespacePrefix}}Glyph _glyphs[{{GlyphsTotal}}] = {
 {{glyphsSB}}
-		};
-
-		PROGMEM const uint8_t _bitmap[{{bitmapBytesTotal}}] = {
+{{globalTabulation}}		};
+{{globalTabulation}}
+{{globalTabulation}}		PROGMEM const uint8_t _bitmap[{{bitmapBytesTotal}}] = {
 {{bitmapSB}}
-		};
-};
+{{globalTabulation}}		};
+{{globalTabulation}}};
 """);
+
+		if (haveNamespace) {
+			await streamWriter.WriteAsync($"{Environment.NewLine}}}");
+		}
 	}
 }

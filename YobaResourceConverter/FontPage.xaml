@@ -45,15 +45,29 @@
 
 				<TextBlock
 					Style="{StaticResource TitleTextBlock}"
-					Text="Font size"
+					Text="Font size / namespace"
 				/>
+				
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition/>
+						<ColumnDefinition/>
+					</Grid.ColumnDefinitions>
 
-				<TextBox
-					Grid.Column="1"
-					Style="{StaticResource TextBox}"
-					x:Name="FontSizeTextBox"
-					Text="16"
-				/>
+					<TextBox
+						Style="{StaticResource TextBox}"
+						x:Name="FontSizeTextBox"
+						Text="16"
+					/>
+					
+					<TextBox
+						Grid.Column="1"
+						Style="{StaticResource TextBox}"
+						x:Name="NamespaceTextBox"
+						Margin="10,0,0,0"
+						Text="yoba"
+					/>
+				</Grid>
 
 				<TextBlock
 					Style="{StaticResource TitleTextBlock}"
@@ -73,7 +87,7 @@
 					/>
 
 					<TextBox
-						Grid.Column="3"
+						Grid.Column="1"
 						x:Name="GlyphsToTextBox"
 						Style="{StaticResource TextBox}"
 						Margin="10,0,0,0"

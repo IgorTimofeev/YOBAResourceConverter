@@ -12,6 +12,7 @@ namespace YobaResourceConverter;
 
 public class FontSettingsJSON {
 	public string Family = "Arial";
+	public string? Namespace = null;
 	public int Size = 16;
 	public int From = 32;
 	public int To = 126;
