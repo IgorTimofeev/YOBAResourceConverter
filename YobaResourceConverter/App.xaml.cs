@@ -36,6 +36,16 @@ public partial class App : Application {
 		base.OnExit(e);
 	}
 
+	public static string ConvertFileNameClassName(string fileNameWithoutExtension) {
+		return $"{char.ToUpper(fileNameWithoutExtension[0])}{fileNameWithoutExtension[1..]}";
+	}
+
+	public static (string, string) ConvertFileNameToHeaderFileNameAndClassName(string fileName, string typeSuffix) {
+		var basis = $"{GetHeaderNameRegex().Replace(fileName, "")}{typeSuffix}";
+
+		return ($"{basis}.h", ConvertFileNameClassName(basis));
+	}
+
 	[GeneratedRegex(@"\W+")]
 	public static partial Regex GetHeaderNameRegex();
 }

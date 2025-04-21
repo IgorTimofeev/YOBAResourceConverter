@@ -15,7 +15,6 @@
 		<SolidColorBrush x:Key="ThemeFg2" Color="#BBB"/>
 		<SolidColorBrush x:Key="ThemeFg3" Color="#999"/>
 		<SolidColorBrush x:Key="ThemeFg4" Color="#555"/>
-		
 
 		<SolidColorBrush x:Key="ThemeAccent1" Color="#dcad61"/>
 		<SolidColorBrush x:Key="ThemeAccent2" Color="#997e53"/>
@@ -549,7 +548,6 @@
 		</Style>
 		
 		<Style x:Key="TabControl" TargetType="TabControl">
-			<Setter Property="Padding" Value="0,8,0,8"/>
 			<Setter Property="TabStripPlacement" Value="Top"/>
 
 			<Setter Property="Template">
@@ -563,13 +561,17 @@
 
 							<Border
 								x:Name="HeaderBorder"
-								Padding="{TemplateBinding Padding}"
+								Padding="0"
+								CornerRadius="5"
+								HorizontalAlignment="Center"
+								Background="{StaticResource ThemeBg3}"
 							>
 								<StackPanel
+									Name="HeaderPanel"
 									Orientation="Horizontal"
 									HorizontalAlignment="Center"
 									IsItemsHost="True"
-									Name="HeaderPanel" 
+									Margin="0"
 								/>
 							</Border>
 
@@ -590,7 +592,7 @@
 
 		<Style x:Key="TabItem" TargetType="TabItem">
 			<Setter Property="Padding" Value="12,10,12,10"/>
-			<Setter Property="Margin" Value="2,0,2,0"/>
+			<Setter Property="Margin" Value="3"/>
 			<Setter Property="Background" Value="Transparent"/>
 			<Setter Property="Foreground" Value="{StaticResource ThemeFg3}"/>
 
@@ -612,7 +614,7 @@
 
 			<Style.Triggers>
 				<Trigger Property="IsMouseOver" Value="True">
-					<Setter Property="Background" Value="{StaticResource ThemeBg3}"/>
+					<Setter Property="Background" Value="{StaticResource ThemeBg5}"/>
 				</Trigger>
 
 				<Trigger Property="IsSelected" Value="True">

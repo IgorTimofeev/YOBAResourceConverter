@@ -53,10 +53,6 @@ public partial class FontPage : UserControl {
 			EnqueueRender();
 		};
 
-		NamespaceTextBox.TextChanged += (s, e) => {
-			App.Settings.Font.Namespace = string.IsNullOrWhiteSpace(NamespaceTextBox.Text) ? null : NamespaceTextBox.Text;
-		};
-
 		void addTextBoxRenderCallback(TextBox textBox, Action<int> valueSetter) {
 			textBox.TextChanged += (s, e) => {
 				if (
@@ -84,8 +80,11 @@ public partial class FontPage : UserControl {
 
 	int
 		GlyphsTotal = 94,
-		GlyphsWidthTotal = 1,
-		GlyphsHeightTotal = 1;
+		GlyphsWidth = 1,
+		GlyphsFixedWidth = -1,
+		GlyphsMaxHeight = 1;
+
+	bool GlyphsIsFixedWidth = false;
 
 	readonly DispatcherTimer RenderTimer;
 
@@ -146,8 +145,10 @@ public partial class FontPage : UserControl {
 		int width;
 		int height;
 
-		GlyphsWidthTotal = 1;
-		GlyphsHeightTotal = 1;
+		GlyphsWidth = 1;
+		GlyphsMaxHeight = 1;
+		GlyphsFixedWidth = -1;
+		GlyphsIsFixedWidth = true;
 
 		using (var drawingContext = drawingVisual.RenderOpen()) {
 			for (int i = 0; i < GlyphsTotal; i++) {
@@ -166,8 +167,19 @@ public partial class FontPage : UserControl {
 				width = (int) Math.Ceiling(formattedText.WidthIncludingTrailingWhitespace);
 				height = (int) Math.Ceiling(formattedText.Height);
 
-				GlyphsWidthTotal += width + GLYPHS_SPACING;
-				GlyphsHeightTotal = Math.Max(GlyphsHeightTotal, height);
+				// Checking if all glyphs have same fixed width, i.e. is font monospaced or not
+				if (GlyphsFixedWidth < 0) {
+					GlyphsFixedWidth = width;
+				}
+				else {
+					if (width != GlyphsFixedWidth) {
+						GlyphsIsFixedWidth = false;
+					}
+				}
+
+				// Computing total size
+				GlyphsWidth += width + GLYPHS_SPACING;
+				GlyphsMaxHeight = Math.Max(GlyphsMaxHeight, height);
 
 				if (width > 0) {
 					drawingContext.DrawText(formattedText, new(x, 0));
@@ -177,15 +189,15 @@ public partial class FontPage : UserControl {
 			}
 		}
 
-		if (GlyphsHeightTotal > 256) {
-			MessageBox.Show($"Retarded font size, pixel height is {GlyphsHeightTotal}, decrease pls");
+		if (GlyphsMaxHeight > 256) {
+			MessageBox.Show($"Retarded font size, pixel height is {GlyphsMaxHeight}, decrease pls");
 			return;
 		}
 
 		// Rendering
 		GlyphsBitmap = new(
-			GlyphsWidthTotal,
-			GlyphsHeightTotal,
+			GlyphsWidth,
+			GlyphsMaxHeight,
 			96,
 			96,
 			PixelFormats.Pbgra32
@@ -194,7 +206,12 @@ public partial class FontPage : UserControl {
 		GlyphsBitmap.Render(drawingVisual);
 
 		PreviewImage.Source = GlyphsBitmap;
-		PreviewImage.Height = GlyphsHeightTotal;
+		PreviewImage.Height = GlyphsMaxHeight;
+	}
+
+	void OnNamespaceTextBoxTextChanged(object sender, TextChangedEventArgs e) {
+		if (NamespaceTextBox.IsFocused)
+			App.Settings.Font.Namespace = string.IsNullOrWhiteSpace(NamespaceTextBox.Text) ? null : NamespaceTextBox.Text;
 	}
 
 	void EnqueueRender() {
@@ -211,20 +228,23 @@ public partial class FontPage : UserControl {
 		SaveFileDialog dialog = new() {
 			Title = "Export font",
 			FileName = $"{className}.h",
-			Filter = "Header files|*.h"
+			Filter = "C++ header files|*.h"
 		};
 
 		if (dialog.ShowDialog() != true)
 			return;
 
-		// Maybe user had changed name via dialog
-		className = Path.GetFileNameWithoutExtension(dialog.FileName);
+		var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(dialog.FileName);
 
-		var haveNamespace = !string.IsNullOrWhiteSpace(App.Settings.Font.Namespace);
-		var namespaceIsYoba = App.Settings.Font.Namespace == "yoba";
-		var globalTabulation = haveNamespace ? "\t" : string.Empty;
-		var privateFieldsTabulation = new string('\t', haveNamespace ? 4 : 3);
-		var namespacePrefix = namespaceIsYoba ? string.Empty : "yoba::";
+		// Maybe user had changed name via dialog
+		className = App.ConvertFileNameClassName(fileNameWithoutExtension);
+
+		var haveUserNamespace = !string.IsNullOrWhiteSpace(App.Settings.Font.Namespace);
+		var userNamespaceIsYoba = App.Settings.Font.Namespace?.Equals("yoba", StringComparison.OrdinalIgnoreCase) is true;
+		var yobaNamespacePrefix = userNamespaceIsYoba ? string.Empty : "yoba::";
+
+		var globalTabulation = haveUserNamespace ? "\t" : string.Empty;
+		var privateFieldsTabulation = new string('\t', haveUserNamespace ? 4 : 3);
 
 		// Bitmap
 		int x = 0;
@@ -262,6 +282,9 @@ public partial class FontPage : UserControl {
 		FormattedText formattedText;
 		int width;
 
+		var glyphClassName = GlyphsIsFixedWidth ? "Glyph" : "VariableWidthGlyph";
+
+		// Converting
 		for (int i = 0; i < GlyphsFormattedTexts!.Length; i++) {
 			formattedText = GlyphsFormattedTexts[i];
 
@@ -271,13 +294,30 @@ public partial class FontPage : UserControl {
 			if (i > 0)
 				glyphsSB.AppendLine();
 
-			glyphsSB.Append($"{privateFieldsTabulation}{namespacePrefix}Glyph({bitmapGlyphBitIndex}, {width}){(i < GlyphsFormattedTexts.Length - 1 ? "," : "")} // {(formattedText.Text == "\\" ? "backslash" : formattedText.Text)}");
+			if (GlyphsIsFixedWidth) {
+				glyphsSB.Append($"{privateFieldsTabulation}{yobaNamespacePrefix}{glyphClassName}({bitmapGlyphBitIndex})");
+			}
+			else {
+				glyphsSB.Append($"{privateFieldsTabulation}{yobaNamespacePrefix}{glyphClassName}({bitmapGlyphBitIndex}, {width})");
+			}
+
+			glyphsSB.Append($"{(i < GlyphsFormattedTexts.Length - 1 ? "," : "")} // {(formattedText.Text == "\\" ? "Backslash" : formattedText.Text)}");
 
 			if (width > 0) {
 				pixelStride = width * 4;
-				pixelBuffer = new byte[pixelStride * GlyphsHeightTotal];
+				pixelBuffer = new byte[pixelStride * GlyphsMaxHeight];
 
-				GlyphsBitmap.CopyPixels(new(x, 0, width, GlyphsHeightTotal), pixelBuffer, pixelStride, 0);
+				GlyphsBitmap.CopyPixels(
+					new(
+						x,
+						0,
+						width,
+						GlyphsMaxHeight
+					),
+					pixelBuffer,
+					pixelStride,
+					0
+				);
 
 				for (int j = 0; j < pixelBuffer.Length; j += 4) {
 					// If alpha has value - there's definitely some pixel data
@@ -293,7 +333,7 @@ public partial class FontPage : UserControl {
 					}
 				}
 
-				bitmapGlyphBitIndex += width * GlyphsHeightTotal;
+				bitmapGlyphBitIndex += width * GlyphsMaxHeight;
 			}
 
 			x += width + GLYPHS_SPACING;
@@ -304,29 +344,40 @@ public partial class FontPage : UserControl {
 			flushBitmapByte();
 
 		// Saving
-		Directory.CreateDirectory(Path.GetDirectoryName(dialog.FileName) ?? "");
+		Directory.CreateDirectory(Path.GetDirectoryName(dialog.FileName) ?? string.Empty);
 
 		using FileStream fileStream = new(dialog.FileName, FileMode.Create, FileAccess.Write, FileShare.None);
 		using BufferedStream bufferedStream = new(fileStream, 8192);
 		using StreamWriter streamWriter = new(bufferedStream, Encoding.UTF8);
 
-		await streamWriter.WriteAsync($"#pragma once{Environment.NewLine}{Environment.NewLine}");
+		await streamWriter.WriteAsync($$"""
+#pragma once
 
-		
-		if (haveNamespace) {
-			if (namespaceIsYoba)
-				await streamWriter.WriteAsync($"#include \"../../font.h\"{Environment.NewLine}{Environment.NewLine}");
+""");
 
-			await streamWriter.WriteAsync($"namespace {App.Settings.Font.Namespace} {{{Environment.NewLine}");
+		if (!string.IsNullOrEmpty(App.Settings.YobaPath)) {
+			await streamWriter.WriteAsync($$"""
+#include "{{App.Settings.YobaPath}}main.h"
+
+
+""");
+		}
+
+		if (haveUserNamespace) {
+			await streamWriter.WriteAsync($$"""
+namespace {{App.Settings.Font.Namespace}} {
+
+""");
 		}
 
 		await streamWriter.WriteAsync($$"""
-{{globalTabulation}}class {{className}} : public {{namespacePrefix}}Font {
+{{globalTabulation}}class {{className}} : public {{yobaNamespacePrefix}}Font {
 {{globalTabulation}}	public:
-{{globalTabulation}}		{{className}}() : {{namespacePrefix}}Font(
+{{globalTabulation}}		{{className}}() : {{yobaNamespacePrefix}}Font(
 {{globalTabulation}}			{{App.Settings.Font.From}},
 {{globalTabulation}}			{{App.Settings.Font.To}},
-{{globalTabulation}}			{{GlyphsHeightTotal}},
+{{globalTabulation}}			{{(GlyphsIsFixedWidth ? GlyphsFixedWidth : 0)}},
+{{globalTabulation}}			{{GlyphsMaxHeight}},
 {{globalTabulation}}			_glyphs,
 {{globalTabulation}}			_bitmap
 {{globalTabulation}}		) {
@@ -334,17 +385,17 @@ public partial class FontPage : UserControl {
 {{globalTabulation}}		}
 {{globalTabulation}}
 {{globalTabulation}}	private:
-{{globalTabulation}}		PROGMEM const {{namespacePrefix}}Glyph _glyphs[{{GlyphsTotal}}] = {
+{{globalTabulation}}		constexpr static const {{yobaNamespacePrefix}}{{glyphClassName}} _glyphs[{{GlyphsTotal}}] = {
 {{glyphsSB}}
 {{globalTabulation}}		};
 {{globalTabulation}}
-{{globalTabulation}}		PROGMEM const uint8_t _bitmap[{{bitmapBytesTotal}}] = {
+{{globalTabulation}}		constexpr static const uint8_t _bitmap[{{bitmapBytesTotal}}] = {
 {{bitmapSB}}
 {{globalTabulation}}		};
 {{globalTabulation}}};
 """);
 
-		if (haveNamespace) {
+		if (haveUserNamespace) {
 			await streamWriter.WriteAsync($"{Environment.NewLine}}}");
 		}
 	}

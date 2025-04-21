@@ -30,47 +30,45 @@ public partial class ImagePage : UserControl {
 		InitializeComponent();
 
 		if (!DesignerProperties.GetIsInDesignMode(this)) {
-			UpdateVisualsFromSettings();
-			Render();
+			// Namespace
+			NamespaceTextBox.Text = App.Settings.Image.Namespace;
+
+			// Mode
+			ModeComboBox.SelectedIndex = (byte) App.Settings.Image.Mode;
+
+			// Path
+			UpdatePathTextBoxText();
+
+			// Palette
+			PaletteTextBox.Text = string.Join(", ", App.Settings.Image.Palette.Select(o => $"{(o >= 0 ? "" : '-')}0x{Math.Abs(o):X6}"));
+			PaletteTextBox.TextChanged += (s, e) => EnqueueParsePalette();
+			ParsePalette();
 		}
 
-		RenderTimer = new(
+		ParsePaletteTimer = new(
 			TimeSpan.FromMilliseconds(500),
 			DispatcherPriority.ApplicationIdle,
 			(s, e) => {
-				RenderTimer!.Stop();
+				ParsePaletteTimer!.Stop();
 
-				Render();
+				ParsePalette();
 			},
 			Dispatcher
 		);
 
-		RenderTimer.Stop();
+		ParsePaletteTimer.Stop();
 	}
 
-	readonly DispatcherTimer RenderTimer;
+	readonly DispatcherTimer ParsePaletteTimer;
 
 	int
 		ExportWidth = 0,
 		ExportHeight = 0;
 
-	byte[] ExportBitmap = [];
+	Color?[] PaletteColors = [];
 
-	void UpdateVisualsFromSettings() {
-		// Mode
-		ModeComboBox.SelectedIndex = (byte) App.Settings.Image.Mode;
-
-		// Path
-		PathTextBox.Text = App.Settings.Image.Path;
-		PathTextBox.TextChanged += (s, e) => EnqueueRender();
-
-		// Palette
-		PaletteTextBox.Text = string.Join(", ", App.Settings.Image.Palette.Select(o => $"{(o >= 0 ? "" : '-')}0x{Math.Abs(o):X6}"));
-		PaletteTextBox.TextChanged += (s, e) => EnqueueRender();
-	}
-
-	void Render() {
-		var paletteSettings =
+	void ParsePalette() {
+		App.Settings.Image.Palette = [..
 			PaletteTextBox.Text
 			.Replace("0x", "")
 			.Split(
@@ -99,35 +97,45 @@ public partial class ImagePage : UserControl {
 
 					return intColor;
 				}
-			).ToArray();
+			)
+		];
 
-		if (paletteSettings.Length == 0)
+		PaletteColors = App.Settings.Image.Palette.Select(o => o >= 0 ? (Color?) ((uint) o).ToColor().ChangeAlpha(0xFF) : null).ToArray();
+	}
+
+	void EnqueueParsePalette() {
+		ParsePaletteTimer.Stop();
+		ParsePaletteTimer.Start();
+	}
+
+	private void OnPathButtonClick(object sender, RoutedEventArgs e) {
+		OpenFileDialog dialog = new() {
+			Multiselect = true,
+			Filter = "Image Files|*.jpg;*.jpeg;*.png;*.gif;*.bmp"
+		};
+
+		if (dialog.ShowDialog() != true)
 			return;
 
-		App.Settings.Image.Palette = paletteSettings;
+		App.Settings.Image.Files = dialog.FileNames;
+		UpdatePathTextBoxText();
+	}
 
-		var paletteColors = paletteSettings.Select(o => o >= 0 ? (Color?) ((uint) o).ToColor().ChangeAlpha(0xFF) : null).ToArray();
+	void UpdatePathTextBoxText() {
+		PathTextBox.Text = App.Settings.Image.Files is null ? null : string.Join(", ", App.Settings.Image.Files.Select(o => Path.GetFileName(o)));
+	}
 
-		if (!File.Exists(PathTextBox.Text))
-			return;
+	void OnNamespaceTextBoxTextChanged(object sender, TextChangedEventArgs e) {
+		if (NamespaceTextBox.IsFocused)
+			App.Settings.Image.Namespace = string.IsNullOrWhiteSpace(NamespaceTextBox.Text) ? null : NamespaceTextBox.Text;
+	}
 
-		App.Settings.Image.Path = PathTextBox.Text;
-
-		BitmapImage originalImage = new(new Uri(PathTextBox.Text, UriKind.Absolute));
-		PreviewImageOriginal.Source = originalImage;
+	byte[] Convert(string imageFileName) {
+		BitmapImage originalImage = new(new Uri(imageFileName, UriKind.Absolute));
 
 		// Conversion itself
 		ExportWidth = originalImage.PixelWidth;
 		ExportHeight = originalImage.PixelHeight;
-
-		WriteableBitmap convertedImage = new(
-			ExportWidth,
-			ExportHeight,
-			96,
-			96,
-			PixelFormats.Pbgra32,
-			null
-		);
 
 		var stride = ExportWidth * 4;
 		var pixels = new byte[stride * ExportHeight];
@@ -148,7 +156,7 @@ public partial class ImagePage : UserControl {
 		Color? paletteColor;
 		Color originalColor;
 
-		ExportBitmap = new byte[ExportWidth * ExportHeight];
+		var bitmap = new byte[ExportWidth * ExportHeight];
 
 		for (int oc = 0; oc < pixels.Length; oc += 4) {
 			originalColor = Color.FromArgb(
@@ -162,8 +170,8 @@ public partial class ImagePage : UserControl {
 			closestDelta = int.MaxValue;
 			closestIndex = 0;
 
-			for (int pi = 0; pi < paletteColors.Length; pi++) {
-				paletteColor = paletteColors[pi];
+			for (int pi = 0; pi < PaletteColors.Length; pi++) {
+				paletteColor = PaletteColors[pi];
 
 				if (paletteColor is null)
 					continue;
@@ -180,7 +188,7 @@ public partial class ImagePage : UserControl {
 				}
 			}
 
-			paletteColor = paletteColors[closestIndex]!;
+			paletteColor = PaletteColors[closestIndex]!;
 
 			// Updating pixels with closest color data
 			pixels[oc + 3] = 0xFF;
@@ -188,76 +196,85 @@ public partial class ImagePage : UserControl {
 			pixels[oc + 1] = paletteColor.Value.G;
 			pixels[oc] = paletteColor.Value.B;
 
-			ExportBitmap[exportBitmapIndex] = (byte) closestIndex;
+			bitmap[exportBitmapIndex] = (byte) closestIndex;
 			exportBitmapIndex++;
 		}
 
-		convertedImage.WritePixels(
-			new(0, 0, ExportWidth, ExportHeight),
-			pixels,
-			stride,
-			0
-		);
-
-		PreviewImageConverted.Source = convertedImage;
+		return bitmap;
 	}
 
-	void EnqueueRender() {
-		RenderTimer.Stop();
-		RenderTimer.Start();
-	}
-
-	private void OnPathButtonClick(object sender, RoutedEventArgs e) {
-		OpenFileDialog dialog = new() {
-			Filter = "Image Files|*.jpg;*.jpeg;*.png;*.gif;*.bmp"
-		};
-
-		if (dialog.ShowDialog() != true)
+	async Task ExportHeaderAsync(string headerFolderName, string imageFileName) {
+		if (!File.Exists(imageFileName))
 			return;
 
-		PathTextBox.Text = dialog.FileName;
-		EnqueueRender();
-	}
+		var bitmap = Convert(imageFileName);
 
-	async void OnSaveButtonClick(object sender, RoutedEventArgs e) {
-		var className = $"{App.GetHeaderNameRegex().Replace(Path.GetFileNameWithoutExtension(PathTextBox.Text), "")}Image";
+		var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(imageFileName);
+		var (headerFileName, className) = App.ConvertFileNameToHeaderFileNameAndClassName(fileNameWithoutExtension, "Image");
 
-		SaveFileDialog dialog = new() {
-			Title = "Export image",
-			FileName = $"{className}.h",
-			Filter = "Header files|*.h"
-		};
+		var haveUserNamespace = !string.IsNullOrWhiteSpace(App.Settings.Image.Namespace);
+		var userNamespaceIsYoba = App.Settings.Image.Namespace?.Equals("yoba", StringComparison.OrdinalIgnoreCase) is true;
+		var yobaNamespacePrefix = userNamespaceIsYoba ? string.Empty : "yoba::";
 
-		if (dialog.ShowDialog() != true)
-			return;
+		var globalTabulation = haveUserNamespace ? "\t" : string.Empty;
+		var privateFieldsTabulation = new string('\t', haveUserNamespace ? 4 : 3);
 
-		// Maybe user had changed name via dialog
-		className = Path.GetFileNameWithoutExtension(dialog.FileName);
+		using FileStream fileStream = new(Path.Combine(headerFolderName, headerFileName), FileMode.Create, FileAccess.Write, FileShare.None);
+		using BufferedStream bufferedStream = new(fileStream, 8192);
+		using StreamWriter streamWriter = new(bufferedStream, Encoding.UTF8);
 
-		using FileStream fileStream = new(dialog.FileName, FileMode.Create, FileAccess.Write, FileShare.None);
-		using StreamWriter streamWriter = new(fileStream, Encoding.UTF8);
+		await streamWriter.WriteAsync($$"""
+#pragma once
 
-		StringBuilder sb = new("\t\t\t");
+
+""");
+
+		if (!string.IsNullOrEmpty(App.Settings.YobaPath)) {
+			await streamWriter.WriteAsync($$"""
+#include "{{App.Settings.YobaPath}}main.h"
+
+
+""");
+		}
+
+		if (haveUserNamespace) {
+			await streamWriter.WriteAsync($$"""
+namespace {{App.Settings.Image.Namespace}} {
+
+""");
+		}
+
+		await streamWriter.WriteAsync($$"""
+{{globalTabulation}}class {{className}} : public {{yobaNamespacePrefix}}Image {
+{{globalTabulation}}	public:
+{{globalTabulation}}		{{className}}() : {{yobaNamespacePrefix}}Image({{yobaNamespacePrefix}}Size({{ExportWidth}}, {{ExportHeight}}), _bitmap) {
+{{globalTabulation}}			
+{{globalTabulation}}		}
+{{globalTabulation}}	
+{{globalTabulation}}	private:
+{{globalTabulation}}		constexpr static const uint8_t _bitmap[{{bitmap.Length}}] = {
+
+""");
+
+		await streamWriter.WriteAsync(privateFieldsTabulation);
 
 		int lineCounter = 0;
 
-		for (int i = 0; i < ExportBitmap.Length; i++) {
+		for (int bi = 0; bi < bitmap.Length; bi++) {
 			if (lineCounter > 0)
-				sb.Append(' ');
+				await streamWriter.WriteAsync(' ');
 
-			sb
-				.Append("0x")
-				.Append(ExportBitmap[i].ToString("X2"));
+			await streamWriter.WriteAsync("0x");
+			await streamWriter.WriteAsync(bitmap[bi].ToString("X2"));
 
-			if (i < ExportBitmap.Length - 1) {
-				sb.Append(',');
+			if (bi < bitmap.Length - 1) {
+				await streamWriter.WriteAsync(',');
 
 				lineCounter++;
 
 				if (lineCounter >= 16) {
-					sb
-						.AppendLine()
-						.Append("\t\t\t");
+					await streamWriter.WriteLineAsync();
+					await streamWriter.WriteAsync(privateFieldsTabulation);
 
 					lineCounter = 0;
 				}
@@ -265,23 +282,27 @@ public partial class ImagePage : UserControl {
 		}
 
 		await streamWriter.WriteAsync($$"""
-class {{className}} : public Image {
-	public:
-		{{className}}() : Image(
-			Size(
-				{{ExportWidth}},
-				{{ExportHeight}}
-			),
-			_bitmap
-		) {
-			
-		}
 
-	private:
-		PROGMEM const uint8_t _bitmap[{{ExportBitmap.Length}}] = {
-{{sb}}
-		};
-};
+{{globalTabulation}}		};
+{{globalTabulation}}};
+}
 """);
+	}
+
+	async void OnSaveButtonClick(object sender, RoutedEventArgs e) {
+		if (App.Settings.Image.Files is null)
+			return;
+
+		OpenFolderDialog dialog = new() {
+			Title = "Export images"
+		};
+
+		if (dialog.ShowDialog() != true)
+			return;
+
+		await Task.WhenAll(App.Settings.Image.Files.Select(imageFileName => ExportHeaderAsync(
+			dialog.FolderName,
+			imageFileName
+		)));
 	}
 }

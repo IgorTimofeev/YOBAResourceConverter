@@ -70,16 +70,16 @@
 		
 		<TabControl
 			x:Name="TabControl"
-			Style="{StaticResource TabControl}"
 			Grid.Row="1"
-			
+			Style="{StaticResource TabControl}"
+			Margin="0,10,0,0"
 			SelectionChanged="OnTabControlSelectionChanged"
 		>
 			<TabItem
 				Style="{StaticResource TabItem}"
 			>
 				<TabItem.Header>
-					Font
+					Fonts
 				</TabItem.Header>
 
 				<TabItem.Content>
@@ -91,11 +91,23 @@
 				Style="{StaticResource TabItem}"
 			>
 				<TabItem.Header>
-					Image
+					Images
 				</TabItem.Header>
 
 				<TabItem.Content>
 					<local:ImagePage/>
+				</TabItem.Content>
+			</TabItem>
+			
+			<TabItem
+				Style="{StaticResource TabItem}"
+			>
+				<TabItem.Header>
+					Settings
+				</TabItem.Header>
+
+				<TabItem.Content>
+					<local:SettingsPage/>
 				</TabItem.Content>
 			</TabItem>
 		</TabControl>

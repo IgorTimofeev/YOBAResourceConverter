@@ -66,6 +66,7 @@
 						x:Name="NamespaceTextBox"
 						Margin="10,0,0,0"
 						Text="yoba"
+						TextChanged="OnNamespaceTextBoxTextChanged"
 					/>
 				</Grid>
 

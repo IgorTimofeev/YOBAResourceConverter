@@ -32,7 +32,9 @@ public class ImageSettingsJSON {
 		0x000000
 	];
 
-	public string Path = string.Empty;
+	public string[]? Files = null;
+
+	public string? Namespace = null;
 }
 
 public class WindowSettingsJSON {
@@ -48,4 +50,5 @@ public class SettingsJSON {
 	public FontSettingsJSON Font = new();
 	public ImageSettingsJSON Image = new();
 	public byte TabIndex = 0;
+	public string? YobaPath = null;
 }
