@@ -29,7 +29,9 @@ public partial class SettingsPage : UserControl {
 	public SettingsPage() {
 		InitializeComponent();
 
-		YobaPathTextBox.Text = App.Settings.YobaPath;
+		if (!DesignerProperties.GetIsInDesignMode(this)) {
+			YobaPathTextBox.Text = App.Settings.YobaPath;
+		}
 	}
 
 	private void OnYobaPathTextBoxTextChanged(object sender, TextChangedEventArgs e) {

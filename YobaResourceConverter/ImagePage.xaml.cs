@@ -25,6 +25,20 @@ using Newtonsoft.Json.Linq;
 
 namespace YobaResourceConverter;
 
+[Flags]
+public enum ImageFlags : byte {
+	None = 0b0000_0000,
+	Palette8 = 0b0000_0001,
+	Alpha = 0b0000_0010,
+}
+
+class ImageData {
+	public ImageFlags Flags;
+	public int Width;
+	public int Height;
+	public byte[] Bitmap = [];
+}
+
 public partial class ImagePage : UserControl {
 	public ImagePage() {
 		InitializeComponent();
@@ -60,10 +74,6 @@ public partial class ImagePage : UserControl {
 	}
 
 	readonly DispatcherTimer ParsePaletteTimer;
-
-	int
-		ExportWidth = 0,
-		ExportHeight = 0;
 
 	Color?[] PaletteColors = [];
 
@@ -130,91 +140,150 @@ public partial class ImagePage : UserControl {
 			App.Settings.Image.Namespace = string.IsNullOrWhiteSpace(NamespaceTextBox.Text) ? null : NamespaceTextBox.Text;
 	}
 
-	byte[] Convert(string imageFileName) {
-		BitmapImage originalImage = new(new Uri(imageFileName, UriKind.Absolute));
+	static void WriteBits(ImageData imageData, ref int bitmapByteIndex, ref byte bitmapBitIndex, byte value, byte count) {
+		for (byte valueBitIndex = 0; valueBitIndex < count; valueBitIndex++) {
+			// 0000 0000
+			// ---- -2--
+			imageData.Bitmap[bitmapByteIndex] =
+				// Value bit == 1 ?
+				((value >> valueBitIndex) & 1) == 1
+				? (byte) (imageData.Bitmap[bitmapByteIndex] | (1 << bitmapBitIndex))
+				: (byte) (imageData.Bitmap[bitmapByteIndex] & ~(1 << bitmapBitIndex));
 
-		// Conversion itself
-		ExportWidth = originalImage.PixelWidth;
-		ExportHeight = originalImage.PixelHeight;
+			bitmapBitIndex++;
 
-		var stride = ExportWidth * 4;
-		var pixels = new byte[stride * ExportHeight];
+			if (bitmapBitIndex > 7) {
+				bitmapBitIndex = 0;
+				bitmapByteIndex++;
+			}
+		}
+	}
 
-		originalImage.CopyPixels(pixels, stride, 0);
+	int FindClosestPaletteIndex(byte[] pixels, int pixelIndex) {
+		double
+			closestDelta = double.MaxValue,
+			delta;
 
 		int
-			exportBitmapIndex = 0,
-			closestIndex,
+			closestIndex = 0,
 			deltaR,
 			deltaG,
 			deltaB;
 
-		double
-			closestDelta,
-			delta;
-
 		Color? paletteColor;
-		Color originalColor;
 
-		var bitmap = new byte[ExportWidth * ExportHeight];
+		for (int paletteIndex = 0; paletteIndex < PaletteColors.Length; paletteIndex++) {
+			paletteColor = PaletteColors[paletteIndex];
 
-		for (int oc = 0; oc < pixels.Length; oc += 4) {
-			originalColor = Color.FromArgb(
-				// No alphas? :((
-				0xFF,
-				pixels[oc + 2],
-				pixels[oc + 1],
-				pixels[oc]
-			);
+			if (paletteColor is null)
+				continue;
 
-			closestDelta = int.MaxValue;
-			closestIndex = 0;
+			deltaR = paletteColor.Value.R - pixels[pixelIndex + 2];
+			deltaG = paletteColor.Value.G - pixels[pixelIndex + 1];
+			deltaB = paletteColor.Value.B - pixels[pixelIndex];
 
-			for (int pi = 0; pi < PaletteColors.Length; pi++) {
-				paletteColor = PaletteColors[pi];
+			delta = Math.Sqrt(deltaR * deltaR + deltaG * deltaG + deltaB * deltaB);
 
-				if (paletteColor is null)
-					continue;
-
-				deltaR = paletteColor.Value.R - originalColor.R;
-				deltaG = paletteColor.Value.G - originalColor.G;
-				deltaB = paletteColor.Value.B - originalColor.B;
-
-				delta = Math.Sqrt(deltaR * deltaR + deltaG * deltaG + deltaB * deltaB);
-
-				if (delta < closestDelta) {
-					closestDelta = delta;
-					closestIndex = pi;
-				}
+			if (delta < closestDelta) {
+				closestDelta = delta;
+				closestIndex = paletteIndex;
 			}
-
-			paletteColor = PaletteColors[closestIndex]!;
-
-			// Updating pixels with closest color data
-			pixels[oc + 3] = 0xFF;
-			pixels[oc + 2] = paletteColor.Value.R;
-			pixels[oc + 1] = paletteColor.Value.G;
-			pixels[oc] = paletteColor.Value.B;
-
-			bitmap[exportBitmapIndex] = (byte) closestIndex;
-			exportBitmapIndex++;
 		}
 
-		return bitmap;
+		return closestIndex;
+	}
+
+	void ConvertPalette8(ImageData imageData, byte[] pixels) {
+		imageData.Flags |= ImageFlags.Palette8;
+
+		int
+			bitmapByteIndex = 0,
+			closestPaletteIndex;
+
+		// Checking for non-max alphas
+		int transparentPixelsCount = 0;
+
+		for (int oc = 0; oc < pixels.Length; oc += 4) {
+			if (pixels[oc + 3] < 0xFF) {
+				transparentPixelsCount++;
+			}
+		}
+
+		var totalPixelsCount = imageData.Width * imageData.Height;
+
+		// Have transparent pixels
+		if (transparentPixelsCount > 0) {
+			imageData.Flags |= ImageFlags.Alpha;
+
+			byte bitmapBitIndex = 0;
+			var nonTransparentPixelsCount = totalPixelsCount - transparentPixelsCount;
+			var bitsCount = transparentPixelsCount * 1 + nonTransparentPixelsCount * (1 + 8);
+
+			imageData.Bitmap = new byte[(int) Math.Ceiling(bitsCount / 8d)];
+
+			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
+				// Transparent
+				if (pixels[pixelIndex + 3] < 0xFF) {
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 0, 1);
+				}
+				// Non-transparent
+				else {
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 1, 1);
+
+					closestPaletteIndex = FindClosestPaletteIndex(pixels, pixelIndex);
+
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, (byte) closestPaletteIndex, 8);
+				}
+			}
+		}
+		// Haven't
+		else {
+			imageData.Bitmap = new byte[totalPixelsCount];
+
+			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
+				closestPaletteIndex = FindClosestPaletteIndex(pixels, pixelIndex);
+				imageData.Bitmap[bitmapByteIndex] = (byte) closestPaletteIndex;
+				bitmapByteIndex++;
+			}
+		}
+	}
+
+	ImageData Convert(string imageFileName) {
+		BitmapImage bitmapImage = new(new Uri(imageFileName, UriKind.Absolute));
+
+		var stride = bitmapImage.PixelWidth * 4;
+		var pixels = new byte[stride * bitmapImage.PixelHeight];
+
+		bitmapImage.CopyPixels(pixels, stride, 0);
+
+		ImageData imageData = new() {
+			Flags = ImageFlags.None,
+			Width = bitmapImage.PixelWidth,
+			Height = bitmapImage.PixelHeight,
+		};
+
+		// Mode
+		switch (ModeComboBox.SelectedIndex) {
+			default:
+				ConvertPalette8(imageData, pixels);
+				break;
+		}
+
+		return imageData;
 	}
 
 	async Task ExportHeaderAsync(string headerFolderName, string imageFileName) {
 		if (!File.Exists(imageFileName))
 			return;
 
-		var bitmap = Convert(imageFileName);
+		var imageData = Convert(imageFileName);
 
 		var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(imageFileName);
 		var (headerFileName, className) = App.ConvertFileNameToHeaderFileNameAndClassName(fileNameWithoutExtension, "Image");
 
 		var haveUserNamespace = !string.IsNullOrWhiteSpace(App.Settings.Image.Namespace);
-		var userNamespaceIsYoba = App.Settings.Image.Namespace?.Equals("yoba", StringComparison.OrdinalIgnoreCase) is true;
-		var yobaNamespacePrefix = userNamespaceIsYoba ? string.Empty : "yoba::";
+		var userNamespaceIsYoba = App.Settings.Image.Namespace == "YOBA";
+		var yobaNamespacePrefix = userNamespaceIsYoba ? string.Empty : "YOBA::";
 
 		var globalTabulation = haveUserNamespace ? "\t" : string.Empty;
 		var privateFieldsTabulation = new string('\t', haveUserNamespace ? 4 : 3);
@@ -223,20 +292,16 @@ public partial class ImagePage : UserControl {
 		using BufferedStream bufferedStream = new(fileStream, 8192);
 		using StreamWriter streamWriter = new(bufferedStream, Encoding.UTF8);
 
+		// Includes
 		await streamWriter.WriteAsync($$"""
 #pragma once
 
-
-""");
-
-		if (!string.IsNullOrEmpty(App.Settings.YobaPath)) {
-			await streamWriter.WriteAsync($$"""
-#include "{{App.Settings.YobaPath}}main.h"
+#include "{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}main.h"
 
 
 """);
-		}
 
+		// Namespace
 		if (haveUserNamespace) {
 			await streamWriter.WriteAsync($$"""
 namespace {{App.Settings.Image.Namespace}} {
@@ -244,15 +309,51 @@ namespace {{App.Settings.Image.Namespace}} {
 """);
 		}
 
+		// Class
 		await streamWriter.WriteAsync($$"""
 {{globalTabulation}}class {{className}} : public {{yobaNamespacePrefix}}Image {
 {{globalTabulation}}	public:
-{{globalTabulation}}		{{className}}() : {{yobaNamespacePrefix}}Image({{yobaNamespacePrefix}}Size({{ExportWidth}}, {{ExportHeight}}), _bitmap) {
+{{globalTabulation}}		{{className}}() : {{yobaNamespacePrefix}}Image(
+{{globalTabulation}}			{{yobaNamespacePrefix}}Size({{imageData.Width}}, {{imageData.Height}}),
+{{globalTabulation}}			_bitmap,
+{{globalTabulation}}			
+""");
+
+		// Flags
+		if (imageData.Flags is ImageFlags.None) {
+			await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageFlags::none");
+		}
+		else {
+			var haveFlags = false;
+
+			async Task writeFlagAsync(ImageFlags flag) {
+				if (!imageData.Flags.HasFlag(flag))
+					return;
+
+				if (haveFlags) {
+					await streamWriter.WriteAsync(" | ");
+				}
+				else {
+					haveFlags = true;
+				}
+
+				await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageFlags::{App.Decapitalize(flag.ToString())}");
+			}
+
+			await writeFlagAsync(ImageFlags.Palette8);
+			await writeFlagAsync(ImageFlags.Alpha);
+		}
+
+
+		// Rest
+		await streamWriter.WriteAsync($$"""
+
+{{globalTabulation}}		) {
 {{globalTabulation}}			
 {{globalTabulation}}		}
 {{globalTabulation}}	
 {{globalTabulation}}	private:
-{{globalTabulation}}		constexpr static const uint8_t _bitmap[{{bitmap.Length}}] = {
+{{globalTabulation}}		constexpr static const uint8_t _bitmap[{{imageData.Bitmap.Length}}] = {
 
 """);
 
@@ -260,14 +361,14 @@ namespace {{App.Settings.Image.Namespace}} {
 
 		int lineCounter = 0;
 
-		for (int bi = 0; bi < bitmap.Length; bi++) {
+		for (int bi = 0; bi < imageData.Bitmap.Length; bi++) {
 			if (lineCounter > 0)
 				await streamWriter.WriteAsync(' ');
 
 			await streamWriter.WriteAsync("0x");
-			await streamWriter.WriteAsync(bitmap[bi].ToString("X2"));
+			await streamWriter.WriteAsync(imageData.Bitmap[bi].ToString("X2"));
 
-			if (bi < bitmap.Length - 1) {
+			if (bi < imageData.Bitmap.Length - 1) {
 				await streamWriter.WriteAsync(',');
 
 				lineCounter++;

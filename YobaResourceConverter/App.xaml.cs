@@ -36,8 +36,16 @@ public partial class App : Application {
 		base.OnExit(e);
 	}
 
+	public static string Decapitalize(string s) {
+		return s.Length > 1 ? $"{char.ToLower(s[0])}{s[1..]}" : s.ToLower();
+	}
+
+	public static string Capitalize(string s) {
+		return s.Length > 1 ? $"{char.ToUpper(s[0])}{s[1..]}" : s.ToUpper();
+	}
+
 	public static string ConvertFileNameClassName(string fileNameWithoutExtension) {
-		return $"{char.ToUpper(fileNameWithoutExtension[0])}{fileNameWithoutExtension[1..]}";
+		return Capitalize(fileNameWithoutExtension);
 	}
 
 	public static (string, string) ConvertFileNameToHeaderFileNameAndClassName(string fileName, string typeSuffix) {

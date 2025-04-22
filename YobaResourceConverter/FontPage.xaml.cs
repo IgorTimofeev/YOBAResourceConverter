@@ -240,8 +240,8 @@ public partial class FontPage : UserControl {
 		className = App.ConvertFileNameClassName(fileNameWithoutExtension);
 
 		var haveUserNamespace = !string.IsNullOrWhiteSpace(App.Settings.Font.Namespace);
-		var userNamespaceIsYoba = App.Settings.Font.Namespace?.Equals("yoba", StringComparison.OrdinalIgnoreCase) is true;
-		var yobaNamespacePrefix = userNamespaceIsYoba ? string.Empty : "yoba::";
+		var userNamespaceIsYoba = App.Settings.Font.Namespace == "YOBA";
+		var yobaNamespacePrefix = userNamespaceIsYoba ? string.Empty : "YOBA::";
 
 		var globalTabulation = haveUserNamespace ? "\t" : string.Empty;
 		var privateFieldsTabulation = new string('\t', haveUserNamespace ? 4 : 3);
@@ -353,15 +353,9 @@ public partial class FontPage : UserControl {
 		await streamWriter.WriteAsync($$"""
 #pragma once
 
-""");
-
-		if (!string.IsNullOrEmpty(App.Settings.YobaPath)) {
-			await streamWriter.WriteAsync($$"""
-#include "{{App.Settings.YobaPath}}main.h"
-
+#include "{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}main.h"
 
 """);
-		}
 
 		if (haveUserNamespace) {
 			await streamWriter.WriteAsync($$"""
