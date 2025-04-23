@@ -27,9 +27,9 @@ namespace YobaResourceConverter;
 
 [Flags]
 public enum ImageFlags : byte {
-	None = 0b0000_0000,
-	Palette8 = 0b0000_0001,
-	Alpha = 0b0000_0010,
+	RGB565 = 0b0000_0000,
+	Palette8Bit = 0b0000_0001,
+	Alpha1Bit = 0b0000_0010,
 }
 
 class ImageData {
@@ -194,7 +194,7 @@ public partial class ImagePage : UserControl {
 	}
 
 	void ConvertPalette8(ImageData imageData, byte[] pixels) {
-		imageData.Flags |= ImageFlags.Palette8;
+		imageData.Flags |= ImageFlags.Palette8Bit;
 
 		int
 			bitmapByteIndex = 0,
@@ -213,7 +213,7 @@ public partial class ImagePage : UserControl {
 
 		// Have transparent pixels
 		if (transparentPixelsCount > 0) {
-			imageData.Flags |= ImageFlags.Alpha;
+			imageData.Flags |= ImageFlags.Alpha1Bit;
 
 			byte bitmapBitIndex = 0;
 			var nonTransparentPixelsCount = totalPixelsCount - transparentPixelsCount;
@@ -257,7 +257,7 @@ public partial class ImagePage : UserControl {
 		bitmapImage.CopyPixels(pixels, stride, 0);
 
 		ImageData imageData = new() {
-			Flags = ImageFlags.None,
+			Flags = ImageFlags.RGB565,
 			Width = bitmapImage.PixelWidth,
 			Height = bitmapImage.PixelHeight,
 		};
@@ -283,7 +283,7 @@ public partial class ImagePage : UserControl {
 
 		var haveUserNamespace = !string.IsNullOrWhiteSpace(App.Settings.Image.Namespace);
 		var userNamespaceIsYoba = App.Settings.Image.Namespace == "YOBA";
-		var yobaNamespacePrefix = userNamespaceIsYoba ? string.Empty : "YOBA::";
+		var yobaNamespacePrefix = haveUserNamespace ? string.Empty : "YOBA::";
 
 		var globalTabulation = haveUserNamespace ? "\t" : string.Empty;
 		var privateFieldsTabulation = new string('\t', haveUserNamespace ? 4 : 3);
@@ -307,6 +307,14 @@ public partial class ImagePage : UserControl {
 namespace {{App.Settings.Image.Namespace}} {
 
 """);
+
+			if (!userNamespaceIsYoba) {
+				await streamWriter.WriteAsync($$"""
+	using namespace YOBA;
+
+
+""");
+			}
 		}
 
 		// Class
@@ -314,14 +322,12 @@ namespace {{App.Settings.Image.Namespace}} {
 {{globalTabulation}}class {{className}} : public {{yobaNamespacePrefix}}Image {
 {{globalTabulation}}	public:
 {{globalTabulation}}		{{className}}() : {{yobaNamespacePrefix}}Image(
-{{globalTabulation}}			{{yobaNamespacePrefix}}Size({{imageData.Width}}, {{imageData.Height}}),
-{{globalTabulation}}			_bitmap,
 {{globalTabulation}}			
 """);
 
 		// Flags
-		if (imageData.Flags is ImageFlags.None) {
-			await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageFlags::none");
+		if (imageData.Flags is ImageFlags.RGB565) {
+			await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageFlags::none,");
 		}
 		else {
 			var haveFlags = false;
@@ -340,14 +346,21 @@ namespace {{App.Settings.Image.Namespace}} {
 				await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageFlags::{App.Decapitalize(flag.ToString())}");
 			}
 
-			await writeFlagAsync(ImageFlags.Palette8);
-			await writeFlagAsync(ImageFlags.Alpha);
-		}
+			await writeFlagAsync(ImageFlags.Palette8Bit);
+			await writeFlagAsync(ImageFlags.Alpha1Bit);
 
+			if (haveFlags) {
+				await streamWriter.WriteAsync($$"""
+,
+
+""");
+			}
+		}
 
 		// Rest
 		await streamWriter.WriteAsync($$"""
-
+{{globalTabulation}}			{{yobaNamespacePrefix}}Size({{imageData.Width}}, {{imageData.Height}}),
+{{globalTabulation}}			_bitmap
 {{globalTabulation}}		) {
 {{globalTabulation}}			
 {{globalTabulation}}		}
