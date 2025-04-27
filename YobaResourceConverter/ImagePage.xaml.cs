@@ -27,15 +27,16 @@ namespace YobaResourceConverter;
 
 [Flags]
 public enum ImageFlags : byte {
+	None = 0b000000_0000,
 	RGB565 = 0b0000_0001,
 	Palette8Bit = 0b0000_0010,
 	Alpha1Bit = 0b0000_0100,
 }
 
 class ImageData {
-	public ImageFlags Flags;
-	public int Width;
-	public int Height;
+	public ImageFlags Flags = ImageFlags.None;
+	public int Width = 0;
+	public int Height = 0;
 	public byte[] Bitmap = [];
 }
 
@@ -268,9 +269,7 @@ public partial class ImagePage : UserControl {
 	void ConvertPalette8(ImageData imageData, byte[] pixels) {
 		imageData.Flags |= ImageFlags.Palette8Bit;
 
-		int
-			bitmapByteIndex = 0,
-			closestPaletteIndex;
+		int bitmapByteIndex = 0;
 
 		// Checking for non-max alphas
 		int transparentPixelsCount = 0;
@@ -301,10 +300,7 @@ public partial class ImagePage : UserControl {
 				// Non-transparent
 				else {
 					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 1, 1);
-
-					closestPaletteIndex = FindClosestPaletteIndex(pixels, pixelIndex);
-
-					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, (byte) closestPaletteIndex, 8);
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, (byte) FindClosestPaletteIndex(pixels, pixelIndex), 8);
 				}
 			}
 		}
@@ -313,8 +309,7 @@ public partial class ImagePage : UserControl {
 			imageData.Bitmap = new byte[totalPixelsCount];
 
 			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
-				closestPaletteIndex = FindClosestPaletteIndex(pixels, pixelIndex);
-				imageData.Bitmap[bitmapByteIndex] = (byte) closestPaletteIndex;
+				imageData.Bitmap[bitmapByteIndex] = (byte) FindClosestPaletteIndex(pixels, pixelIndex);
 				bitmapByteIndex++;
 			}
 		}
@@ -329,7 +324,7 @@ public partial class ImagePage : UserControl {
 		bitmapImage.CopyPixels(pixels, stride, 0);
 
 		ImageData imageData = new() {
-			Flags = ImageFlags.RGB565,
+			Flags = ImageFlags.None,
 			Width = bitmapImage.PixelWidth,
 			Height = bitmapImage.PixelHeight,
 		};
