@@ -33,14 +33,16 @@
 				<ComboBox
 					Style="{StaticResource ComboBox}"
 					x:Name="ModeComboBox"
-					SelectedIndex="0"
+					SelectionChanged="OnModeComboBoxSelectionChanged"
 				>
 					<ComboBox.Items>
+						<s:String>RGB 565</s:String>
 						<s:String>8 bit palette</s:String>
 					</ComboBox.Items>
 				</ComboBox>
 
 				<TextBlock
+					x:Name="PaletteTitle"
 					Style="{StaticResource TitleTextBlock}"
 					Text="Comma-separated colors in 0xRRGGBB format. To ignore specific color, mark it as negative"
 				/>

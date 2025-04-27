@@ -27,9 +27,9 @@ namespace YobaResourceConverter;
 
 [Flags]
 public enum ImageFlags : byte {
-	RGB565 = 0b0000_0000,
-	Palette8Bit = 0b0000_0001,
-	Alpha1Bit = 0b0000_0010,
+	RGB565 = 0b0000_0001,
+	Palette8Bit = 0b0000_0010,
+	Alpha1Bit = 0b0000_0100,
 }
 
 class ImageData {
@@ -159,6 +159,78 @@ public partial class ImagePage : UserControl {
 		}
 	}
 
+	// --------|--------
+	//          RRRRR000
+	// 000BBBBB
+	//          00000GGG
+	// GGG00000
+	static int RGB888ToRGB565(byte r, byte g, byte b) {
+		return ((r >> 3) << 3) | (g >> 5) | ((g >> 2) << 13) | ((b >> 3) << 8);
+	}
+
+	static void ConvertRGB565(ImageData imageData, byte[] pixels) {
+		imageData.Flags |= ImageFlags.RGB565;
+
+		int bitmapByteIndex = 0;
+
+		// Checking for non-max alphas
+		int transparentPixelsCount = 0;
+
+		for (int oc = 0; oc < pixels.Length; oc += 4) {
+			if (pixels[oc + 3] < 0xFF) {
+				transparentPixelsCount++;
+			}
+		}
+
+		var totalPixelsCount = imageData.Width * imageData.Height;
+
+		// Have transparent pixels
+		if (transparentPixelsCount > 0) {
+			imageData.Flags |= ImageFlags.Alpha1Bit;
+
+			byte bitmapBitIndex = 0;
+			var nonTransparentPixelsCount = totalPixelsCount - transparentPixelsCount;
+			var bitsCount = transparentPixelsCount * 1 + nonTransparentPixelsCount * (1 + 8 * 2);
+
+			imageData.Bitmap = new byte[(int) Math.Ceiling(bitsCount / 8d)];
+
+			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
+				// Transparent
+				if (pixels[pixelIndex + 3] < 0xFF) {
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 0, 1);
+				}
+				// Non-transparent
+				else {
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 1, 1);
+
+					var RGB565 = RGB888ToRGB565(
+						pixels[pixelIndex + 2],
+						pixels[pixelIndex + 1],
+						pixels[pixelIndex]
+					);
+
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, (byte) (RGB565 & 0xFF), 8);
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, (byte) ((RGB565 >> 8) & 0xFF), 8);
+				}
+			}
+		}
+		// Haven't
+		else {
+			imageData.Bitmap = new byte[totalPixelsCount * 2];
+
+			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
+				var RGB565 = RGB888ToRGB565(
+					pixels[pixelIndex + 2],
+					pixels[pixelIndex + 1],
+					pixels[pixelIndex]
+				);
+
+				imageData.Bitmap[bitmapByteIndex++] = (byte) (RGB565 & 0xFF);
+				imageData.Bitmap[bitmapByteIndex++] = (byte) ((RGB565 >> 8) & 0xFF);
+			}
+		}
+	}
+
 	int FindClosestPaletteIndex(byte[] pixels, int pixelIndex) {
 		double
 			closestDelta = double.MaxValue,
@@ -263,7 +335,11 @@ public partial class ImagePage : UserControl {
 		};
 
 		// Mode
-		switch (ModeComboBox.SelectedIndex) {
+		switch (App.Settings.Image.Mode) {
+			case ImageSettingsMode.RGB565:
+				ConvertRGB565(imageData, pixels);
+				break;
+
 			default:
 				ConvertPalette8(imageData, pixels);
 				break;
@@ -326,35 +402,31 @@ namespace {{App.Settings.Image.Namespace}} {
 """);
 
 		// Flags
-		if (imageData.Flags is ImageFlags.RGB565) {
-			await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageFlags::none,");
-		}
-		else {
-			var haveFlags = false;
+		var haveFlags = false;
 
-			async Task writeFlagAsync(ImageFlags flag) {
-				if (!imageData.Flags.HasFlag(flag))
-					return;
-
-				if (haveFlags) {
-					await streamWriter.WriteAsync(" | ");
-				}
-				else {
-					haveFlags = true;
-				}
-
-				await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageFlags::{App.Decapitalize(flag.ToString())}");
-			}
-
-			await writeFlagAsync(ImageFlags.Palette8Bit);
-			await writeFlagAsync(ImageFlags.Alpha1Bit);
+		async Task writeFlagAsync(ImageFlags flag, string name) {
+			if (!imageData.Flags.HasFlag(flag))
+				return;
 
 			if (haveFlags) {
-				await streamWriter.WriteAsync($$"""
+				await streamWriter.WriteAsync(" | ");
+			}
+			else {
+				haveFlags = true;
+			}
+
+			await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageFlags::{name}");
+		}
+
+		await writeFlagAsync(ImageFlags.RGB565, "RGB565");
+		await writeFlagAsync(ImageFlags.Palette8Bit, "palette8Bit");
+		await writeFlagAsync(ImageFlags.Alpha1Bit, "alpha1Bit");
+
+		if (haveFlags) {
+			await streamWriter.WriteAsync($$"""
 ,
 
 """);
-			}
 		}
 
 		// Rest
@@ -418,5 +490,28 @@ namespace {{App.Settings.Image.Namespace}} {
 			dialog.FolderName,
 			imageFileName
 		)));
+	}
+
+	void OnModeComboBoxSelectionChanged(object sender, SelectionChangedEventArgs e) {
+		if (ModeComboBox.SelectedIndex < 0)
+			return;
+
+		App.Settings.Image.Mode = (ImageSettingsMode) ModeComboBox.SelectedIndex;
+
+
+		switch (App.Settings.Image.Mode) {
+			case ImageSettingsMode.RGB565:
+				PaletteTitle.Visibility = Visibility.Collapsed;
+				PaletteTextBox.Visibility = Visibility.Collapsed;
+
+				break;
+
+			// Palette
+			default:
+				PaletteTitle.Visibility = Visibility.Visible;
+				PaletteTextBox.Visibility = Visibility.Visible;
+
+				break;
+		}
 	}
 }

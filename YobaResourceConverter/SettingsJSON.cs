@@ -19,12 +19,12 @@ public class FontSettingsJSON {
 }
 
 public enum ImageSettingsMode : byte {
-	Default16Bit,
+	RGB565,
 	Palette
 }
 
 public class ImageSettingsJSON {
-	public ImageSettingsMode Mode = ImageSettingsMode.Default16Bit;
+	public ImageSettingsMode Mode = ImageSettingsMode.RGB565;
 
 	public int[] Palette = [
 		0x000000,
