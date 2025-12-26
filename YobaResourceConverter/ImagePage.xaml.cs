@@ -178,7 +178,7 @@ public partial class ImagePage : UserControl {
 		int transparentPixelsCount = 0;
 
 		for (int oc = 0; oc < pixels.Length; oc += 4) {
-			if (pixels[oc + 3] < 0xFF) {
+			if (pixels[oc + 3] == 0) {
 				transparentPixelsCount++;
 			}
 		}
@@ -197,7 +197,7 @@ public partial class ImagePage : UserControl {
 
 			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
 				// Transparent
-				if (pixels[pixelIndex + 3] < 0xFF) {
+				if (pixels[pixelIndex + 3] == 0) {
 					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 0, 1);
 				}
 				// Non-transparent
@@ -275,7 +275,7 @@ public partial class ImagePage : UserControl {
 		int transparentPixelsCount = 0;
 
 		for (int oc = 0; oc < pixels.Length; oc += 4) {
-			if (pixels[oc + 3] < 0xFF) {
+			if (pixels[oc + 3] == 0) {
 				transparentPixelsCount++;
 			}
 		}
@@ -294,7 +294,7 @@ public partial class ImagePage : UserControl {
 
 			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
 				// Transparent
-				if (pixels[pixelIndex + 3] < 0xFF) {
+				if (pixels[pixelIndex + 3] == 0) {
 					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 0, 1);
 				}
 				// Non-transparent
@@ -367,7 +367,7 @@ public partial class ImagePage : UserControl {
 		await streamWriter.WriteAsync($$"""
 #pragma once
 
-#include "{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}main.h"
+#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}main.h>
 
 
 """);
@@ -433,7 +433,7 @@ namespace {{App.Settings.Image.Namespace}} {
 {{globalTabulation}}		}
 {{globalTabulation}}	
 {{globalTabulation}}	private:
-{{globalTabulation}}		constexpr static const uint8_t _bitmap[{{imageData.Bitmap.Length}}] = {
+{{globalTabulation}}		constexpr static uint8_t _bitmap[{{imageData.Bitmap.Length}}] = {
 
 """);
 
