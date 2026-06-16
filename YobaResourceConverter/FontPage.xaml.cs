@@ -353,7 +353,7 @@ public partial class FontPage : UserControl {
 		await streamWriter.WriteAsync($$"""
 #pragma once
 
-#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}main.h>
+#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}core.h>
 
 """);
 
@@ -367,7 +367,7 @@ namespace {{App.Settings.Font.Namespace}} {
 		await streamWriter.WriteAsync($$"""
 {{globalTabulation}}class {{className}} : public {{yobaNamespacePrefix}}Font {
 {{globalTabulation}}	public:
-{{globalTabulation}}		{{className}}() : {{yobaNamespacePrefix}}Font(
+{{globalTabulation}}		constexpr {{className}}() : {{yobaNamespacePrefix}}Font(
 {{globalTabulation}}			{{App.Settings.Font.From}},
 {{globalTabulation}}			{{App.Settings.Font.To}},
 {{globalTabulation}}			{{(GlyphsIsFixedWidth ? GlyphsFixedWidth : 0)}},

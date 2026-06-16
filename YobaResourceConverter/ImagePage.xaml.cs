@@ -367,7 +367,7 @@ public partial class ImagePage : UserControl {
 		await streamWriter.WriteAsync($$"""
 #pragma once
 
-#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}main.h>
+#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}core.h>
 
 
 """);
@@ -392,7 +392,7 @@ namespace {{App.Settings.Image.Namespace}} {
 		await streamWriter.WriteAsync($$"""
 {{globalTabulation}}class {{className}} : public {{yobaNamespacePrefix}}Image {
 {{globalTabulation}}	public:
-{{globalTabulation}}		{{className}}() : {{yobaNamespacePrefix}}Image(
+{{globalTabulation}}		constexpr {{className}}() : {{yobaNamespacePrefix}}Image(
 {{globalTabulation}}			
 """);
 
