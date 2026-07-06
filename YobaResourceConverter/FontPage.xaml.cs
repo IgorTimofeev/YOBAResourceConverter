@@ -81,10 +81,10 @@ public partial class FontPage : UserControl {
 	int
 		GlyphsTotal = 94,
 		GlyphsWidth = 1,
-		GlyphsFixedWidth = -1,
+		GlyphsConstantWidth = -1,
 		GlyphsMaxHeight = 1;
 
-	bool GlyphsIsFixedWidth = false;
+	bool GlyphsIsConstantWidth = false;
 
 	readonly DispatcherTimer RenderTimer;
 
@@ -147,8 +147,8 @@ public partial class FontPage : UserControl {
 
 		GlyphsWidth = 1;
 		GlyphsMaxHeight = 1;
-		GlyphsFixedWidth = -1;
-		GlyphsIsFixedWidth = true;
+		GlyphsConstantWidth = -1;
+		GlyphsIsConstantWidth = true;
 
 		using (var drawingContext = drawingVisual.RenderOpen()) {
 			for (int i = 0; i < GlyphsTotal; i++) {
@@ -168,12 +168,12 @@ public partial class FontPage : UserControl {
 				height = (int) Math.Ceiling(formattedText.Height);
 
 				// Checking if all glyphs have same fixed width, i.e. is font monospaced or not
-				if (GlyphsFixedWidth < 0) {
-					GlyphsFixedWidth = width;
+				if (GlyphsConstantWidth < 0) {
+					GlyphsConstantWidth = width;
 				}
 				else {
-					if (width != GlyphsFixedWidth) {
-						GlyphsIsFixedWidth = false;
+					if (width != GlyphsConstantWidth) {
+						GlyphsIsConstantWidth = false;
 					}
 				}
 
@@ -237,7 +237,7 @@ public partial class FontPage : UserControl {
 		var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(dialog.FileName);
 
 		// Maybe user had changed name via dialog
-		className = App.ConvertFileNameClassName(fileNameWithoutExtension);
+		className = App.ConvertFileNameToClassName(fileNameWithoutExtension);
 
 		var haveUserNamespace = !string.IsNullOrWhiteSpace(App.Settings.Font.Namespace);
 		var userNamespaceIsYoba = App.Settings.Font.Namespace == "YOBA";
@@ -282,7 +282,7 @@ public partial class FontPage : UserControl {
 		FormattedText formattedText;
 		int width;
 
-		var glyphClassName = GlyphsIsFixedWidth ? "Glyph" : "VariableWidthGlyph";
+		var glyphClassName = GlyphsIsConstantWidth ? "ConstantWidthGlyph" : "VariableWidthGlyph";
 
 		// Converting
 		for (int i = 0; i < GlyphsFormattedTexts!.Length; i++) {
@@ -294,11 +294,11 @@ public partial class FontPage : UserControl {
 			if (i > 0)
 				glyphsSB.AppendLine();
 
-			if (GlyphsIsFixedWidth) {
-				glyphsSB.Append($"{privateFieldsTabulation}{yobaNamespacePrefix}{glyphClassName}({bitmapGlyphBitIndex})");
+			if (GlyphsIsConstantWidth) {
+				glyphsSB.Append($"{privateFieldsTabulation}{{}}");
 			}
 			else {
-				glyphsSB.Append($"{privateFieldsTabulation}{yobaNamespacePrefix}{glyphClassName}({bitmapGlyphBitIndex}, {width})");
+				glyphsSB.Append($"{privateFieldsTabulation}{{ {bitmapGlyphBitIndex}, {width} }}");
 			}
 
 			glyphsSB.Append($"{(i < GlyphsFormattedTexts.Length - 1 ? "," : "")} // {(formattedText.Text == "\\" ? "Backslash" : formattedText.Text)}");
@@ -353,7 +353,8 @@ public partial class FontPage : UserControl {
 		await streamWriter.WriteAsync($$"""
 #pragma once
 
-#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}core.h>
+#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}core/font.h>
+
 
 """);
 
@@ -370,7 +371,7 @@ namespace {{App.Settings.Font.Namespace}} {
 {{globalTabulation}}		constexpr {{className}}() : {{yobaNamespacePrefix}}Font(
 {{globalTabulation}}			{{App.Settings.Font.From}},
 {{globalTabulation}}			{{App.Settings.Font.To}},
-{{globalTabulation}}			{{(GlyphsIsFixedWidth ? GlyphsFixedWidth : 0)}},
+{{globalTabulation}}			{{(GlyphsIsConstantWidth ? GlyphsConstantWidth : 0)}},
 {{globalTabulation}}			{{GlyphsMaxHeight}},
 {{globalTabulation}}			_glyphs,
 {{globalTabulation}}			_bitmap

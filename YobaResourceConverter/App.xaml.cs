@@ -44,14 +44,14 @@ public partial class App : Application {
 		return s.Length > 1 ? $"{char.ToUpper(s[0])}{s[1..]}" : s.ToUpper();
 	}
 
-	public static string ConvertFileNameClassName(string fileNameWithoutExtension) {
+	public static string ConvertFileNameToClassName(string fileNameWithoutExtension) {
 		return Capitalize(fileNameWithoutExtension);
 	}
 
 	public static (string, string) ConvertFileNameToHeaderFileNameAndClassName(string fileName, string typeSuffix) {
 		var basis = $"{GetHeaderNameRegex().Replace(fileName, "")}{typeSuffix}";
 
-		return ($"{basis}.h", ConvertFileNameClassName(basis));
+		return ($"{basis}.h", ConvertFileNameToClassName(basis));
 	}
 
 	[GeneratedRegex(@"\W+")]
