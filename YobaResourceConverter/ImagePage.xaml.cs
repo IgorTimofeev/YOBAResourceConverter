@@ -1,5 +1,9 @@
-﻿using Microsoft.Win32;
+﻿using ColorEx;
+using ColorEx.Wpf;
+using Microsoft.Win32;
+using Newtonsoft.Json.Linq;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -19,9 +23,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Threading;
-using ColorEx;
-using ColorEx.Wpf;
-using Newtonsoft.Json.Linq;
 
 namespace YobaResourceConverter;
 
@@ -50,6 +51,9 @@ public partial class ImagePage : UserControl {
 
 			// Mode
 			ModeComboBox.SelectedIndex = (byte) App.Settings.Image.Mode;
+
+			// Endianness
+			EndiannessComboBox.SelectedIndex = (byte) App.Settings.Image.Endianness;
 
 			// Path
 			UpdatePathTextBoxText();
@@ -160,13 +164,19 @@ public partial class ImagePage : UserControl {
 		}
 	}
 
-	// --------|--------
-	//          RRRRR000
-	// 000BBBBB
-	//          00000GGG
-	// GGG00000
+	static int RGB888ToRGB565LE(byte r, byte g, byte b) {
+		return ((r & 0b11111000) << 8) | ((g & 0b11111100) << 3) | (b >> 3);
+	}
+
+	static int RGB888ToRGB565BE(byte r, byte g, byte b) {
+		return BinaryPrimitives.ReverseEndianness((ushort) RGB888ToRGB565LE(r, g, b));
+	}
+
 	static int RGB888ToRGB565(byte r, byte g, byte b) {
-		return ((r >> 3) << 3) | (g >> 5) | ((g >> 2) << 13) | ((b >> 3) << 8);
+		return
+			App.Settings.Image.Endianness is ImageSettingsEndianness.LittleEndian
+			? RGB888ToRGB565LE(r, g, b)
+			: RGB888ToRGB565BE(r, g, b);
 	}
 
 	static void ConvertRGB565(ImageData imageData, byte[] pixels) {
@@ -493,7 +503,6 @@ namespace {{App.Settings.Image.Namespace}} {
 
 		App.Settings.Image.Mode = (ImageSettingsMode) ModeComboBox.SelectedIndex;
 
-
 		switch (App.Settings.Image.Mode) {
 			case ImageSettingsMode.RGB565:
 				PaletteTitle.Visibility = Visibility.Collapsed;
@@ -508,5 +517,12 @@ namespace {{App.Settings.Image.Namespace}} {
 
 				break;
 		}
+	}
+
+	private void OnEndiannessComboBoxSelectionChanged(object sender, SelectionChangedEventArgs e) {
+		if (EndiannessComboBox.SelectedIndex < 0)
+			return;
+
+		App.Settings.Image.Endianness = (ImageSettingsEndianness) EndiannessComboBox.SelectedIndex;
 	}
 }

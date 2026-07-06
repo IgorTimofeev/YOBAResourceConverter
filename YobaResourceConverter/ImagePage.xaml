@@ -25,21 +25,51 @@
 			Padding="{StaticResource ContentMargin}"
 		>
 			<StackPanel>
-				<TextBlock
-					Style="{StaticResource TitleTextBlock}"
-					Text="Mode"
-				/>
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition/>
+						<ColumnDefinition/>
+					</Grid.ColumnDefinitions>
+					
+					<StackPanel>
+						<TextBlock
+							Style="{StaticResource TitleTextBlock}"
+							Text="Mode"
+						/>
 
-				<ComboBox
-					Style="{StaticResource ComboBox}"
-					x:Name="ModeComboBox"
-					SelectionChanged="OnModeComboBoxSelectionChanged"
-				>
-					<ComboBox.Items>
-						<s:String>RGB 565</s:String>
-						<s:String>8 bit palette</s:String>
-					</ComboBox.Items>
-				</ComboBox>
+						<ComboBox
+							Style="{StaticResource ComboBox}"
+							x:Name="ModeComboBox"
+							SelectionChanged="OnModeComboBoxSelectionChanged"
+						>
+							<ComboBox.Items>
+								<s:String>RGB 565</s:String>
+								<s:String>8 bit palette</s:String>
+							</ComboBox.Items>
+						</ComboBox>
+					</StackPanel>
+					
+					<StackPanel
+						Grid.Column="1"
+						Margin="10,0,0,0"
+					>
+						<TextBlock
+							Style="{StaticResource TitleTextBlock}"
+							Text="Endianness"
+						/>
+
+						<ComboBox
+							Style="{StaticResource ComboBox}"
+							x:Name="EndiannessComboBox"
+							SelectionChanged="OnEndiannessComboBoxSelectionChanged"
+						>
+							<ComboBox.Items>
+								<s:String>Little endian</s:String>
+								<s:String>Big endian</s:String>
+							</ComboBox.Items>
+						</ComboBox>
+					</StackPanel>
+				</Grid>
 
 				<TextBlock
 					x:Name="PaletteTitle"

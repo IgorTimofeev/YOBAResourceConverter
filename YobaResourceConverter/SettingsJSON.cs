@@ -23,8 +23,14 @@ public enum ImageSettingsMode : byte {
 	Palette
 }
 
+public enum ImageSettingsEndianness : byte {
+	LittleEndian,
+	BigEndian
+}
+
 public class ImageSettingsJSON {
 	public ImageSettingsMode Mode = ImageSettingsMode.RGB565;
+	public ImageSettingsEndianness Endianness = ImageSettingsEndianness.BigEndian;
 
 	public int[] Palette = [
 		0x000000,
