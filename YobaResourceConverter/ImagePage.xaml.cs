@@ -27,7 +27,7 @@ using System.Windows.Threading;
 namespace YobaResourceConverter;
 
 [Flags]
-public enum ImageFlags : byte {
+public enum ImageOptions : byte {
 	None = 0b000000_0000,
 	RGB565 = 0b0000_0001,
 	Palette8Bit = 0b0000_0010,
@@ -35,7 +35,7 @@ public enum ImageFlags : byte {
 }
 
 class ImageData {
-	public ImageFlags Flags = ImageFlags.None;
+	public ImageOptions Options = ImageOptions.None;
 	public int Width = 0;
 	public int Height = 0;
 	public byte[] Bitmap = [];
@@ -180,7 +180,7 @@ public partial class ImagePage : UserControl {
 	}
 
 	static void ConvertRGB565(ImageData imageData, byte[] pixels) {
-		imageData.Flags |= ImageFlags.RGB565;
+		imageData.Options |= ImageOptions.RGB565;
 
 		int bitmapByteIndex = 0;
 
@@ -197,7 +197,7 @@ public partial class ImagePage : UserControl {
 
 		// Have transparent pixels
 		if (transparentPixelsCount > 0) {
-			imageData.Flags |= ImageFlags.Alpha1Bit;
+			imageData.Options |= ImageOptions.Alpha1Bit;
 
 			byte bitmapBitIndex = 0;
 			var nonTransparentPixelsCount = totalPixelsCount - transparentPixelsCount;
@@ -277,7 +277,7 @@ public partial class ImagePage : UserControl {
 	}
 
 	void ConvertPalette8(ImageData imageData, byte[] pixels) {
-		imageData.Flags |= ImageFlags.Palette8Bit;
+		imageData.Options |= ImageOptions.Palette8Bit;
 
 		int bitmapByteIndex = 0;
 
@@ -294,7 +294,7 @@ public partial class ImagePage : UserControl {
 
 		// Have transparent pixels
 		if (transparentPixelsCount > 0) {
-			imageData.Flags |= ImageFlags.Alpha1Bit;
+			imageData.Options |= ImageOptions.Alpha1Bit;
 
 			byte bitmapBitIndex = 0;
 			var nonTransparentPixelsCount = totalPixelsCount - transparentPixelsCount;
@@ -334,7 +334,7 @@ public partial class ImagePage : UserControl {
 		bitmapImage.CopyPixels(pixels, stride, 0);
 
 		ImageData imageData = new() {
-			Flags = ImageFlags.None,
+			Options = ImageOptions.None,
 			Width = bitmapImage.PixelWidth,
 			Height = bitmapImage.PixelHeight,
 		};
@@ -377,7 +377,7 @@ public partial class ImagePage : UserControl {
 		await streamWriter.WriteAsync($$"""
 #pragma once
 
-#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}core.h>
+#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}Core.hpp>
 
 
 """);
@@ -406,28 +406,28 @@ namespace {{App.Settings.Image.Namespace}} {
 {{globalTabulation}}			
 """);
 
-		// Flags
-		var haveFlags = false;
+		// Options
+		var haveOptions = false;
 
-		async Task writeFlagAsync(ImageFlags flag, string name) {
-			if (!imageData.Flags.HasFlag(flag))
+		async Task writeOptionAsync(ImageOptions option, string name) {
+			if (!imageData.Options.HasFlag(option))
 				return;
 
-			if (haveFlags) {
+			if (haveOptions) {
 				await streamWriter.WriteAsync(" | ");
 			}
 			else {
-				haveFlags = true;
+				haveOptions = true;
 			}
 
-			await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageFlags::{name}");
+			await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageOptions::{name}");
 		}
 
-		await writeFlagAsync(ImageFlags.RGB565, "RGB565");
-		await writeFlagAsync(ImageFlags.Palette8Bit, "palette8Bit");
-		await writeFlagAsync(ImageFlags.Alpha1Bit, "alpha1Bit");
+		await writeOptionAsync(ImageOptions.RGB565, "RGB565");
+		await writeOptionAsync(ImageOptions.Palette8Bit, "palette8Bit");
+		await writeOptionAsync(ImageOptions.Alpha1Bit, "alpha1Bit");
 
-		if (haveFlags) {
+		if (haveOptions) {
 			await streamWriter.WriteAsync($$"""
 ,
 

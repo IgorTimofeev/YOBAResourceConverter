@@ -227,8 +227,8 @@ public partial class FontPage : UserControl {
 
 		SaveFileDialog dialog = new() {
 			Title = "Export font",
-			FileName = $"{className}.h",
-			Filter = "C++ header files|*.h"
+			FileName = $"{className}.hpp",
+			Filter = "C++ header files|*.hpp"
 		};
 
 		if (dialog.ShowDialog() != true)
@@ -353,7 +353,7 @@ public partial class FontPage : UserControl {
 		await streamWriter.WriteAsync($$"""
 #pragma once
 
-#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}core/font.h>
+#include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}Core.hpp>
 
 
 """);

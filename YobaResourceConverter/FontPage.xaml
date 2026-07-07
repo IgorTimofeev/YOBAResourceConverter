@@ -126,7 +126,7 @@
 			Grid.Row="1"
 			Style="{StaticResource Button}"
 			Margin="{StaticResource LowerPartMargin}"
-			Content="Export .h"
+			Content="Export header"
 			Click="OnSaveButtonClick"
 		/>
 	</Grid>

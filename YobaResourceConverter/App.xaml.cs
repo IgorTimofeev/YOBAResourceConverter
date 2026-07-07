@@ -51,7 +51,7 @@ public partial class App : Application {
 	public static (string, string) ConvertFileNameToHeaderFileNameAndClassName(string fileName, string typeSuffix) {
 		var basis = $"{GetHeaderNameRegex().Replace(fileName, "")}{typeSuffix}";
 
-		return ($"{basis}.h", ConvertFileNameToClassName(basis));
+		return ($"{Capitalize(basis)}.hpp", ConvertFileNameToClassName(basis));
 	}
 
 	[GeneratedRegex(@"\W+")]
