@@ -221,7 +221,7 @@ public partial class FontPage : UserControl {
 		if (GlyphsBitmap is null)
 			return;
 
-		var className = $"{App.GetHeaderNameRegex().Replace(GlyphsTypeface!.FontFamily.ToString(), "")}{App.Settings.Font.Size}Font";
+		var className = $"{App.GetHeaderNameRegex().Replace(App.Capitalize(GlyphsTypeface!.FontFamily.ToString()), "")}{App.Settings.Font.Size}Font";
 
 		SaveFileDialog dialog = new() {
 			Title = "Export font",
