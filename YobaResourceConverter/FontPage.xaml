@@ -72,29 +72,14 @@
 
 				<TextBlock
 					Style="{StaticResource TitleTextBlock}"
-					Text="Codepoints from / to"
+					Text="Character set"
 				/>
-
-				<Grid>
-					<Grid.ColumnDefinitions>
-						<ColumnDefinition/>
-						<ColumnDefinition/>
-					</Grid.ColumnDefinitions>
-
-					<TextBox
-						x:Name="GlyphsFromTextBox"
-						Style="{StaticResource TextBox}"
-						Text="32"
-					/>
-
-					<TextBox
-						Grid.Column="1"
-						x:Name="GlyphsToTextBox"
-						Style="{StaticResource TextBox}"
-						Margin="10,0,0,0"
-						Text="126"
-					/>
-				</Grid>
+				
+				<TextBox
+					x:Name="CharacterSetTextBox"
+					Style="{StaticResource TextBox}"
+					Text="ABCDEF"
+				/>
 
 				<TextBlock
 					Style="{StaticResource TitleTextBlock}"

@@ -13,9 +13,8 @@ namespace YobaResourceConverter;
 public class FontSettingsJSON {
 	public string Family = "Arial";
 	public string? Namespace = null;
+	public string CharacterSet = " !\"#$%&'()*+,-./0123456789:;<=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~¢£¥§©®°×÷ΔπАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщыьэюя•€™√✓";
 	public int Size = 16;
-	public int From = 32;
-	public int To = 126;
 }
 
 public enum ImageSettingsMode : byte {

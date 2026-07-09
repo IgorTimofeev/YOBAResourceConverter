@@ -16,6 +16,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.TextFormatting;
 using System.Windows.Navigation;
 using System.Windows.Threading;
 
@@ -53,6 +54,15 @@ public partial class FontPage : UserControl {
 			EnqueueRender();
 		};
 
+		CharacterSetTextBox.TextChanged += (s, e) => {
+			if (CharacterSetTextBox.Text.Length == 0)
+				return;
+
+			App.Settings.Font.CharacterSet = CharacterSetTextBox.Text;
+
+			EnqueueRender();
+		};
+
 		void addTextBoxRenderCallback(TextBox textBox, Action<int> valueSetter) {
 			textBox.TextChanged += (s, e) => {
 				if (
@@ -68,8 +78,6 @@ public partial class FontPage : UserControl {
 		}
 
 		addTextBoxRenderCallback(FontSizeTextBox, o => App.Settings.Font.Size = o);
-		addTextBoxRenderCallback(GlyphsFromTextBox, o => App.Settings.Font.From = o);
-		addTextBoxRenderCallback(GlyphsToTextBox, o => App.Settings.Font.To = o);
 	}
 
 	FormattedText[]? GlyphsFormattedTexts = null;
@@ -91,8 +99,7 @@ public partial class FontPage : UserControl {
 	public ObservableCollection<FontFamily> FontFamilies { get; set; } = [];
 
 	void UpdateVisualsFromSettings() {
-		GlyphsFromTextBox.Text = App.Settings.Font.From.ToString();
-		GlyphsToTextBox.Text = App.Settings.Font.To.ToString();
+		CharacterSetTextBox.Text = App.Settings.Font.CharacterSet;
 		FontSizeTextBox.Text = App.Settings.Font.Size.ToString();
 		NamespaceTextBox.Text = App.Settings.Font.Namespace;
 
@@ -114,16 +121,7 @@ public partial class FontPage : UserControl {
 	}
 
 	void Render() {
-		if (!int.TryParse(FontSizeTextBox.Text, out App.Settings.Font.Size))
-			App.Settings.Font.Size = 16;
-
-		if (!int.TryParse(GlyphsFromTextBox.Text, out App.Settings.Font.From))
-			App.Settings.Font.From = 32;
-
-		if (!int.TryParse(GlyphsToTextBox.Text, out App.Settings.Font.To))
-			App.Settings.Font.To = 126;
-
-		GlyphsTotal = App.Settings.Font.To - App.Settings.Font.From + 1;
+		GlyphsTotal = App.Settings.Font.CharacterSet.Length;
 
 		if (GlyphsTotal <= 0) {
 			return;
@@ -153,7 +151,7 @@ public partial class FontPage : UserControl {
 		using (var drawingContext = drawingVisual.RenderOpen()) {
 			for (int i = 0; i < GlyphsTotal; i++) {
 				GlyphsFormattedTexts[i] = formattedText = new(
-					((char) (App.Settings.Font.From + i)).ToString(),
+					App.Settings.Font.CharacterSet[i].ToString(),
 					CultureInfo.CurrentUICulture,
 					FlowDirection.LeftToRight,
 					GlyphsTypeface,
@@ -251,7 +249,8 @@ public partial class FontPage : UserControl {
 
 		StringBuilder
 			glyphsSB = new(),
-			bitmapSB = new(privateFieldsTabulation);
+			bitmapSB = new(privateFieldsTabulation),
+			mappingSwitchSB = new();
 
 		int bitmapGlyphBitIndex = 0;
 		int bitmapByteIndex = 0;
@@ -290,9 +289,9 @@ public partial class FontPage : UserControl {
 
 			width = (int) Math.Ceiling(formattedText.WidthIncludingTrailingWhitespace);
 
-			// Header glyph
-			if (i > 0)
+			if (i > 0) {
 				glyphsSB.AppendLine();
+			}
 
 			if (GlyphsIsConstantWidth) {
 				glyphsSB.Append($"{privateFieldsTabulation}{{}}");
@@ -301,8 +300,18 @@ public partial class FontPage : UserControl {
 				glyphsSB.Append($"{privateFieldsTabulation}{{ {bitmapGlyphBitIndex}, {width} }}");
 			}
 
-			glyphsSB.Append($"{(i < GlyphsFormattedTexts.Length - 1 ? "," : "")} // {(formattedText.Text == "\\" ? "Backslash" : formattedText.Text)}");
+			var charName = formattedText.Text switch {
+				"\\" => "Backslash",
+				" " => "Whitespace",
+				_ => formattedText.Text
+			};
 
+			if (i < GlyphsFormattedTexts.Length - 1)
+				glyphsSB.Append(',');
+
+			glyphsSB.Append($" // {charName}");
+
+			// Pixels
 			if (width > 0) {
 				pixelStride = width * 4;
 				pixelBuffer = new byte[pixelStride * GlyphsMaxHeight];
@@ -337,11 +346,24 @@ public partial class FontPage : UserControl {
 			}
 
 			x += width + GLYPHS_SPACING;
+
+			// Switch
+			mappingSwitchSB
+				.AppendLine($$"""
+{{globalTabulation}}				case {{(int) formattedText.Text[0]}}: return {{i}}; // {{charName}}
+""");
 		}
 
 		// Last byte
 		if (bitmapByteBitIndex > 0)
 			flushBitmapByte();
+
+		// Mapping switch default branch
+		mappingSwitchSB
+			.Append($$"""
+{{globalTabulation}}				default: return -1;
+""");
+
 
 		// Saving
 		Directory.CreateDirectory(Path.GetDirectoryName(dialog.FileName) ?? string.Empty);
@@ -351,6 +373,9 @@ public partial class FontPage : UserControl {
 		using StreamWriter streamWriter = new(bufferedStream, Encoding.UTF8);
 
 		await streamWriter.WriteAsync($$"""
+// This file was generated automatically and does not require manual editing.
+// If you need a conversion tool, here is a link:  https://github.com/IgorTimofeev/YobaResourceConverter
+
 #pragma once
 
 #include <{{(string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath)}}Core.hpp>
@@ -369,8 +394,6 @@ namespace {{App.Settings.Font.Namespace}} {
 {{globalTabulation}}class {{className}} : public {{yobaNamespacePrefix}}Font {
 {{globalTabulation}}	public:
 {{globalTabulation}}		constexpr {{className}}() : {{yobaNamespacePrefix}}Font(
-{{globalTabulation}}			{{App.Settings.Font.From}},
-{{globalTabulation}}			{{App.Settings.Font.To}},
 {{globalTabulation}}			{{(GlyphsIsConstantWidth ? GlyphsConstantWidth : 0)}},
 {{globalTabulation}}			{{GlyphsMaxHeight}},
 {{globalTabulation}}			_glyphs,
@@ -383,7 +406,13 @@ namespace {{App.Settings.Font.Namespace}} {
 {{globalTabulation}}		constexpr static {{yobaNamespacePrefix}}{{glyphClassName}} _glyphs[{{GlyphsTotal}}] {
 {{glyphsSB}}
 {{globalTabulation}}		};
-{{globalTabulation}}
+{{globalTabulation}}		
+{{globalTabulation}}		constexpr int32_t getGlyphIndex(const uint32_t codepoint) const override {
+{{globalTabulation}}			switch (codepoint) {
+{{mappingSwitchSB}}
+{{globalTabulation}}			}
+{{globalTabulation}}		}
+{{globalTabulation}}		
 {{globalTabulation}}		constexpr static uint8_t _bitmap[{{bitmapBytesTotal}}] {
 {{bitmapSB}}
 {{globalTabulation}}		};
