@@ -380,11 +380,11 @@ namespace {{App.Settings.Font.Namespace}} {
 {{globalTabulation}}		}
 {{globalTabulation}}
 {{globalTabulation}}	private:
-{{globalTabulation}}		constexpr static {{yobaNamespacePrefix}}{{glyphClassName}} _glyphs[{{GlyphsTotal}}] = {
+{{globalTabulation}}		constexpr static {{yobaNamespacePrefix}}{{glyphClassName}} _glyphs[{{GlyphsTotal}}] {
 {{glyphsSB}}
 {{globalTabulation}}		};
 {{globalTabulation}}
-{{globalTabulation}}		constexpr static uint8_t _bitmap[{{bitmapBytesTotal}}] = {
+{{globalTabulation}}		constexpr static uint8_t _bitmap[{{bitmapBytesTotal}}] {
 {{bitmapSB}}
 {{globalTabulation}}		};
 {{globalTabulation}}};

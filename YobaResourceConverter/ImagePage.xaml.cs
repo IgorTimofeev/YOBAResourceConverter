@@ -22,19 +22,31 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
+using System.Windows.Shapes;
 using System.Windows.Threading;
+using System.Xml.Linq;
+
+using Path = System.IO.Path;
 
 namespace YobaResourceConverter;
 
+public enum ColorModel : byte {
+	Monochrome,
+	RGB565,
+	RGB666,
+	RGB888,
+	HSB,
+	Indexed8Bit
+}
+
 [Flags]
 public enum ImageOptions : byte {
-	None = 0b000000_0000,
-	RGB565 = 0b0000_0001,
-	Palette8Bit = 0b0000_0010,
-	Alpha1Bit = 0b0000_0100,
+	None =        0b00000000,
+	Alpha1Bit =   0b00000010,
 }
 
 class ImageData {
+	public ColorModel ColorModel = ColorModel.RGB888;
 	public ImageOptions Options = ImageOptions.None;
 	public int Width = 0;
 	public int Height = 0;
@@ -56,7 +68,7 @@ public partial class ImagePage : UserControl {
 			EndiannessComboBox.SelectedIndex = (byte) App.Settings.Image.Endianness;
 
 			// Path
-			UpdatePathTextBoxText();
+			UpdateImagePreview();
 
 			// Palette
 			PaletteTextBox.Text = string.Join(", ", App.Settings.Image.Palette.Select(o => $"{(o >= 0 ? "" : '-')}0x{Math.Abs(o):X6}"));
@@ -123,21 +135,49 @@ public partial class ImagePage : UserControl {
 		ParsePaletteTimer.Start();
 	}
 
-	private void OnPathButtonClick(object sender, RoutedEventArgs e) {
-		OpenFileDialog dialog = new() {
-			Multiselect = true,
-			Filter = "Image Files|*.jpg;*.jpeg;*.png;*.gif;*.bmp"
-		};
+	void UpdateImagePreview() {
+		var have = App.Settings.Image.Files is not null;
 
-		if (dialog.ShowDialog() != true)
+		ImagePreviewPlaceholderText.Visibility
+			= have ? Visibility.Collapsed : Visibility.Visible;
+
+		ImagePreviewScrollViewer.Visibility
+			= ImagePreviewScrollViewSelectionOverlay.Visibility
+			= have ? Visibility.Visible : Visibility.Collapsed;
+
+		ImagePreviewImagesPanel.Children.Clear();
+
+		if (!have)
 			return;
 
-		App.Settings.Image.Files = dialog.FileNames;
-		UpdatePathTextBoxText();
-	}
+		for (int i = 0; i < App.Settings.Image.Files!.Length; i++) {
+			try {
+				var filePath = App.Settings.Image.Files[i];
 
-	void UpdatePathTextBoxText() {
-		PathTextBox.Text = App.Settings.Image.Files is null ? null : string.Join(", ", App.Settings.Image.Files.Select(o => Path.GetFileName(o)));
+				BitmapImage bitmapImage = new(new Uri(filePath));
+
+				Rectangle rectangle = new() {
+					SnapsToDevicePixels = true,
+					Height = Math.Min(bitmapImage.PixelHeight, ImagePreviewRoot.Height),
+					Fill = new ImageBrush {
+						ImageSource = bitmapImage,
+						Stretch = Stretch.Fill
+					},
+				};
+
+				if (i > 0)
+					rectangle.Margin = new(10, 0, 0, 0);
+
+				rectangle.Width = rectangle.Height * bitmapImage.PixelWidth / bitmapImage.PixelHeight;
+
+				RenderOptions.SetBitmapScalingMode(rectangle, bitmapImage.PixelHeight <= ImagePreviewRoot.Height ? BitmapScalingMode.NearestNeighbor : BitmapScalingMode.HighQuality);
+
+				ImagePreviewImagesPanel.Children.Add(rectangle);
+			}
+			catch (Exception) {
+
+			}
+		}
 	}
 
 	void OnNamespaceTextBoxTextChanged(object sender, TextChangedEventArgs e) {
@@ -180,7 +220,7 @@ public partial class ImagePage : UserControl {
 	}
 
 	static void ConvertRGB565(ImageData imageData, byte[] pixels) {
-		imageData.Options |= ImageOptions.RGB565;
+		imageData.ColorModel = ColorModel.RGB565;
 
 		int bitmapByteIndex = 0;
 
@@ -242,6 +282,58 @@ public partial class ImagePage : UserControl {
 		}
 	}
 
+	static void ConvertRGB888(ImageData imageData, byte[] pixels) {
+		imageData.ColorModel = ColorModel.RGB888;
+
+		int bitmapByteIndex = 0;
+
+		// Checking for non-max alphas
+		int transparentPixelsCount = 0;
+
+		for (int oc = 0; oc < pixels.Length; oc += 4) {
+			if (pixels[oc + 3] == 0) {
+				transparentPixelsCount++;
+			}
+		}
+
+		var totalPixelsCount = imageData.Width * imageData.Height;
+
+		// Have transparent pixels
+		if (transparentPixelsCount > 0) {
+			imageData.Options |= ImageOptions.Alpha1Bit;
+
+			byte bitmapBitIndex = 0;
+			var nonTransparentPixelsCount = totalPixelsCount - transparentPixelsCount;
+			var bitsCount = transparentPixelsCount * 1 + nonTransparentPixelsCount * (1 + 8 * 3);
+
+			imageData.Bitmap = new byte[(int) Math.Ceiling(bitsCount / 8d)];
+
+			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
+				// Transparent
+				if (pixels[pixelIndex + 3] == 0) {
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 0, 1);
+				}
+				// Non-transparent
+				else {
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 1, 1);
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, pixels[pixelIndex + 2], 8);
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, pixels[pixelIndex + 1], 8);
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, pixels[pixelIndex], 8);
+				}
+			}
+		}
+		// Haven't
+		else {
+			imageData.Bitmap = new byte[totalPixelsCount * 3];
+
+			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
+				imageData.Bitmap[bitmapByteIndex++] = pixels[pixelIndex + 2];
+				imageData.Bitmap[bitmapByteIndex++] = pixels[pixelIndex + 1];
+				imageData.Bitmap[bitmapByteIndex++] = pixels[pixelIndex];
+			}
+		}
+	}
+
 	int FindClosestPaletteIndex(byte[] pixels, int pixelIndex) {
 		double
 			closestDelta = double.MaxValue,
@@ -277,7 +369,7 @@ public partial class ImagePage : UserControl {
 	}
 
 	void ConvertPalette8(ImageData imageData, byte[] pixels) {
-		imageData.Options |= ImageOptions.Palette8Bit;
+		imageData.ColorModel = ColorModel.Indexed8Bit;
 
 		int bitmapByteIndex = 0;
 
@@ -345,6 +437,10 @@ public partial class ImagePage : UserControl {
 				ConvertRGB565(imageData, pixels);
 				break;
 
+			case ImageSettingsMode.RGB888:
+				ConvertRGB888(imageData, pixels);
+				break;
+
 			default:
 				ConvertPalette8(imageData, pixels);
 				break;
@@ -403,7 +499,22 @@ namespace {{App.Settings.Image.Namespace}} {
 {{globalTabulation}}class {{className}} : public {{yobaNamespacePrefix}}Image {
 {{globalTabulation}}	public:
 {{globalTabulation}}		constexpr {{className}}() : {{yobaNamespacePrefix}}Image(
-{{globalTabulation}}			
+
+""");
+
+		// Color model
+		var colorModeStr = imageData.ColorModel switch {
+			ColorModel.Monochrome => "monochrome",
+			ColorModel.RGB565 => "RGB565",
+			ColorModel.RGB666 => "RGB666",
+			ColorModel.RGB888 => "RGB888",
+			ColorModel.HSB => "HSB",
+			_ => "indexed8Bit",
+		};
+
+		await streamWriter.WriteAsync($$"""
+{{globalTabulation}}			{{yobaNamespacePrefix}}ColorModel::{{colorModeStr}},
+
 """);
 
 		// Options
@@ -417,19 +528,25 @@ namespace {{App.Settings.Image.Namespace}} {
 				await streamWriter.WriteAsync(" | ");
 			}
 			else {
+				await streamWriter.WriteAsync($"{globalTabulation}\t\t\t");
+
 				haveOptions = true;
 			}
 
 			await streamWriter.WriteAsync($"{yobaNamespacePrefix}ImageOptions::{name}");
 		}
 
-		await writeOptionAsync(ImageOptions.RGB565, "RGB565");
-		await writeOptionAsync(ImageOptions.Palette8Bit, "palette8Bit");
 		await writeOptionAsync(ImageOptions.Alpha1Bit, "alpha1Bit");
 
 		if (haveOptions) {
 			await streamWriter.WriteAsync($$"""
 ,
+
+""");
+		}
+		else {
+			await streamWriter.WriteAsync($$"""
+{{globalTabulation}}			{{yobaNamespacePrefix}}ImageOptions::none,
 
 """);
 		}
@@ -443,7 +560,7 @@ namespace {{App.Settings.Image.Namespace}} {
 {{globalTabulation}}		}
 {{globalTabulation}}	
 {{globalTabulation}}	private:
-{{globalTabulation}}		constexpr static uint8_t _bitmap[{{imageData.Bitmap.Length}}] = {
+{{globalTabulation}}		constexpr static uint8_t _bitmap[{{imageData.Bitmap.Length}}] {
 
 """);
 
@@ -504,7 +621,7 @@ namespace {{App.Settings.Image.Namespace}} {
 		App.Settings.Image.Mode = (ImageSettingsMode) ModeComboBox.SelectedIndex;
 
 		switch (App.Settings.Image.Mode) {
-			case ImageSettingsMode.RGB565:
+			case ImageSettingsMode.RGB565 or ImageSettingsMode.RGB888:
 				PaletteTitle.Visibility = Visibility.Collapsed;
 				PaletteTextBox.Visibility = Visibility.Collapsed;
 
@@ -524,5 +641,18 @@ namespace {{App.Settings.Image.Namespace}} {
 			return;
 
 		App.Settings.Image.Endianness = (ImageSettingsEndianness) EndiannessComboBox.SelectedIndex;
+	}
+
+	private void OnImagePreviewMouseDown(object sender, MouseButtonEventArgs e) {
+		OpenFileDialog dialog = new() {
+			Multiselect = true,
+			Filter = "Image Files|*.jpg;*.jpeg;*.png;*.gif;*.bmp"
+		};
+
+		if (dialog.ShowDialog() != true)
+			return;
+
+		App.Settings.Image.Files = dialog.FileNames;
+		UpdateImagePreview();
 	}
 }

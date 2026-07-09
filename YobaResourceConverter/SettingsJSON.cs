@@ -20,6 +20,7 @@ public class FontSettingsJSON {
 
 public enum ImageSettingsMode : byte {
 	RGB565,
+	RGB888,
 	Palette
 }
 

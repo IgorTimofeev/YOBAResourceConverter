@@ -25,6 +25,56 @@
 			Padding="{StaticResource ContentMargin}"
 		>
 			<StackPanel>
+				<TextBlock
+					Style="{StaticResource TitleTextBlock}"
+					Text="Selected images"
+				/>
+				
+				<Grid
+					x:Name="ImagePreviewRoot"
+					Height="100"
+				>
+					<Border
+						BorderThickness="1"
+						BorderBrush="{StaticResource ThemeBg4}"
+						Background="Transparent"
+						CornerRadius="5"
+						Cursor="Hand"
+						PreviewMouseDown="OnImagePreviewMouseDown"
+					>
+						<TextBlock
+							x:Name="ImagePreviewPlaceholderText"
+							Style="{StaticResource TitleTextBlock}"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center"
+							Foreground="{StaticResource ThemeBg5}"
+							Text="Click to select"
+						/>	
+					</Border>
+					
+					<ScrollViewer
+						x:Name="ImagePreviewScrollViewer"
+						Style="{StaticResource ScrollViewer}"
+						HorizontalScrollBarVisibility="Auto"
+						VerticalScrollBarVisibility="Disabled"
+					>
+						<StackPanel
+							x:Name="ImagePreviewImagesPanel"
+							Orientation="Horizontal"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center"
+						/>
+					</ScrollViewer>
+					
+					<Border
+						x:Name="ImagePreviewScrollViewSelectionOverlay"
+						Background="Transparent"
+						Margin="0,0,0,15"
+						Cursor="Hand"
+						PreviewMouseDown="OnImagePreviewMouseDown"
+					/>
+				</Grid>
+				
 				<Grid>
 					<Grid.ColumnDefinitions>
 						<ColumnDefinition/>
@@ -44,6 +94,7 @@
 						>
 							<ComboBox.Items>
 								<s:String>RGB 565</s:String>
+								<s:String>RGB 888</s:String>
 								<s:String>8 bit palette</s:String>
 							</ComboBox.Items>
 						</ComboBox>
@@ -83,33 +134,6 @@
 					x:Name="PaletteTextBox"
 					Text="0x000000, -0xFF00FF, 0xFFFFFF"
 				/>
-
-				<TextBlock
-					Style="{StaticResource TitleTextBlock}"
-					Text="Selected images"
-				/>
-
-				<Grid>
-					<Grid.ColumnDefinitions>
-						<ColumnDefinition/>
-						<ColumnDefinition Width="Auto"/>
-					</Grid.ColumnDefinitions>
-
-					<TextBox
-						Style="{StaticResource TextBox}"
-						x:Name="PathTextBox"
-						IsReadOnly="True"
-					/>
-
-					<Button
-						Grid.Column="1"
-						Style="{StaticResource SecondaryButton}"
-						Margin="10,0,0,0"
-						Width="40"
-						Content="📁"
-						Click="OnPathButtonClick"
-					/>
-				</Grid>
 				
 				<TextBlock
 					Style="{StaticResource TitleTextBlock}"
