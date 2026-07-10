@@ -26,9 +26,11 @@
 
 		<SolidColorBrush x:Key="ThemeCaret" Color="#5ec1ff"/>
 
-		<Thickness x:Key="ContentMargin">50,0,50,0</Thickness>
+		<Thickness x:Key="ContentMargin">50,20,50,20</Thickness>
 		<Thickness x:Key="LowerPartMargin">50,20,50,20</Thickness>
 
+		<FontFamily x:Key="ForkAwesome">Resources/Fonts/#forkawesome</FontFamily>
+		
 		<Style x:Key="ScrollBarThumb" TargetType="Thumb">
 			<Setter Property="IsTabStop" Value="false"/>
 			<Setter Property="Focusable" Value="false"/>
@@ -178,11 +180,28 @@
 			</Setter>
 		</Style>
 
-		<Style x:Key="TitleTextBlock" TargetType="TextBlock">
-			<Setter Property="Margin" Value="0,10,0,5"/>
+		<Style x:Key="DescriptionTextBlock" TargetType="TextBlock">
+			<Setter Property="Margin" Value="0,10,0,0"/>
 			<Setter Property="FontSize" Value="12"/>
 			<Setter Property="Foreground" Value="{StaticResource ThemeFg4}"/>
 			<Setter Property="TextWrapping" Value="Wrap"/>
+		</Style>
+		
+		<Style x:Key="TitleTextBlock" TargetType="TextBlock" BasedOn="{StaticResource DescriptionTextBlock}">
+			<Setter Property="Margin" Value="0,10,0,5"/>
+			<Setter Property="FontSize" Value="12"/>
+			<Setter Property="Foreground" Value="{StaticResource ThemeFg4}"/>
+		</Style>
+		
+		<Style x:Key="PageTitleTextBlock" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlock}">
+			<Setter Property="Margin" Value="0,0,0,0"/>
+			<Setter Property="FontSize" Value="18"/>
+			<Setter Property="Foreground" Value="{StaticResource ThemeFg1}"/>
+		</Style>
+		
+		<Style x:Key="IconTextBlock" TargetType="TextBlock">
+			<Setter Property="FontFamily" Value="{StaticResource ForkAwesome}"/>
+			<Setter Property="FontSize" Value="14"/>
 		</Style>
 
 		<Style x:Key="TextBox" TargetType="TextBox">
@@ -547,6 +566,13 @@
 			</Style.Triggers>
 		</Style>
 		
+		<Style x:Key="Divider" TargetType="Rectangle">
+			<Setter Property="SnapsToDevicePixels" Value="true"/>
+			<Setter Property="Height" Value="1"/>
+			<Setter Property="Margin" Value="0,25,0,10"/>
+			<Setter Property="Fill" Value="{StaticResource ThemeBg5}"/>
+		</Style>
+		
 		<Style x:Key="TabControl" TargetType="TabControl">
 			<Setter Property="TabStripPlacement" Value="Top"/>
 
@@ -554,29 +580,27 @@
 				<Setter.Value>
 					<ControlTemplate TargetType="TabControl">
 						<Grid>
-							<Grid.RowDefinitions>
-								<RowDefinition Height="Auto"/>
-								<RowDefinition/>
-							</Grid.RowDefinitions>
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="Auto"/>
+								<ColumnDefinition/>
+							</Grid.ColumnDefinitions>
 
 							<Border
 								x:Name="HeaderBorder"
 								Padding="0"
-								CornerRadius="5"
-								HorizontalAlignment="Center"
-								Background="{StaticResource ThemeBg3}"
+								Background="{StaticResource ThemeBg2}"
 							>
 								<StackPanel
 									Name="HeaderPanel"
-									Orientation="Horizontal"
-									HorizontalAlignment="Center"
+									Orientation="Vertical"
+									VerticalAlignment="Top"
 									IsItemsHost="True"
 									Margin="0"
 								/>
 							</Border>
 
 							<ContentPresenter
-								Grid.Row="1"
+								Grid.Column="1"
 								Name="PART_SelectedContentHost"
 								SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" 
 								Content="{TemplateBinding SelectedContent}" 

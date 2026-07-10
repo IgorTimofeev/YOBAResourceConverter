@@ -67,13 +67,16 @@ public partial class ImagePage : UserControl {
 			// Endianness
 			EndiannessComboBox.SelectedIndex = (byte) App.Settings.Image.Endianness;
 
-			// Path
-			UpdateImagePreview();
+			// Common header path
+			CommonHeaderPathTextBox.Text = App.Settings.Image.CommonHeaderPath;
 
 			// Palette
 			PaletteTextBox.Text = string.Join(", ", App.Settings.Image.Palette.Select(o => $"{(o >= 0 ? "" : '-')}0x{Math.Abs(o):X6}"));
 			PaletteTextBox.TextChanged += (s, e) => EnqueueParsePalette();
 			ParsePalette();
+
+			// Preview
+			UpdateImagePreview();
 		}
 
 		ParsePaletteTimer = new(
@@ -449,7 +452,7 @@ public partial class ImagePage : UserControl {
 		return imageData;
 	}
 
-	async Task ExportHeaderAsync(string headerFolderName, string imageFileName) {
+	async Task ExportImageHeaderAsync(string headerFolderName, string imageFileName) {
 		if (!File.Exists(imageFileName))
 			return;
 
@@ -611,7 +614,7 @@ namespace {{App.Settings.Image.Namespace}} {
 		if (dialog.ShowDialog() != true)
 			return;
 
-		await Task.WhenAll(App.Settings.Image.Files.Select(imageFileName => ExportHeaderAsync(
+		await Task.WhenAll(App.Settings.Image.Files.Select(imageFileName => ExportImageHeaderAsync(
 			dialog.FolderName,
 			imageFileName
 		)));
@@ -657,5 +660,90 @@ namespace {{App.Settings.Image.Namespace}} {
 
 		App.Settings.Image.Files = dialog.FileNames;
 		UpdateImagePreview();
+	}
+
+	private async void OnExportGenericButtonClick(object sender, RoutedEventArgs e) {
+		SaveFileDialog dialog = new() {
+			Title = "Export generic images header",
+			FileName = "Images.hpp",
+			Filter = "C++ header files|*.hpp"
+		};
+
+		if (dialog.ShowDialog() != true)
+			return;
+
+		using FileStream fileStream = new(dialog.FileName, FileMode.Create, FileAccess.Write, FileShare.None);
+		using BufferedStream bufferedStream = new(fileStream, 8192);
+		using StreamWriter streamWriter = new(bufferedStream, Encoding.UTF8);
+
+		var haveUserNamespace = !string.IsNullOrWhiteSpace(App.Settings.Image.Namespace);
+		var userNamespaceIsYOBA = App.Settings.Image.Namespace == "YOBA";
+		var YOBANamespacePrefix = haveUserNamespace ? string.Empty : "YOBA::";
+		var YOBAIncludePath = string.IsNullOrEmpty(App.Settings.YobaPath) ? "YOBA/" : App.Settings.YobaPath;
+		var headerToolInfo = """
+// This file was generated automatically and does not require manual editing.
+// If you need a conversion tool, here is a link: https://github.com/IgorTimofeev/YOBAResourceConverter
+""";
+
+
+		var globalTabulation = haveUserNamespace ? "\t" : string.Empty;
+		var privateFieldsTabulation = new string('\t', haveUserNamespace ? 4 : 3);
+
+		// Includes
+		await streamWriter.WriteAsync($$"""
+{{headerToolInfo}}
+
+#pragma once
+
+
+""");
+		if (App.Settings.Image.Files is not null) {
+			foreach (var filePath in App.Settings.Image.Files) {
+				await streamWriter.WriteLineAsync($$"""
+#include "{{(App.Settings.Image.CommonHeaderPath is null ? "" : $"{App.Settings.Image.CommonHeaderPath}/".Replace("//", "/"))}}{{App.Capitalize(Path.GetFileNameWithoutExtension(filePath))}}Image.hpp"
+""");
+			}
+
+			await streamWriter.WriteLineAsync();
+		}
+
+		// Namespace
+		if (haveUserNamespace) {
+			await streamWriter.WriteAsync($$"""
+namespace {{App.Settings.Image.Namespace}} {
+
+""");
+		}
+
+		// Images
+		await streamWriter.WriteAsync($$"""
+{{globalTabulation}}class Images {
+{{globalTabulation}}	public:
+
+""");
+
+		if (App.Settings.Image.Files is not null) {
+			foreach (var filePath in App.Settings.Image.Files) {
+				var className = Path.GetFileNameWithoutExtension(filePath);
+
+				await streamWriter.WriteLineAsync($$"""
+{{globalTabulation}}		constexpr static {{App.Capitalize(className)}}Image {{App.Decapitalize(className)}} {};
+""");
+			}
+		}
+
+		await streamWriter.WriteAsync($$"""
+{{globalTabulation}}};
+}
+""");
+	}
+
+	private void Button_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e) {
+
+	}
+
+	private void OnCommonHeaderPathTextBoxTextChanged(object sender, TextChangedEventArgs e) {
+		if (CommonHeaderPathTextBox.IsFocused)
+			App.Settings.Image.CommonHeaderPath = string.IsNullOrWhiteSpace(CommonHeaderPathTextBox.Text) ? null : CommonHeaderPathTextBox.Text;
 	}
 }

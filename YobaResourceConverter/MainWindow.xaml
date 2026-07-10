@@ -72,26 +72,19 @@
 			x:Name="TabControl"
 			Grid.Row="1"
 			Style="{StaticResource TabControl}"
-			Margin="0,10,0,0"
 			SelectionChanged="OnTabControlSelectionChanged"
 		>
 			<TabItem
 				Style="{StaticResource TabItem}"
 			>
 				<TabItem.Header>
-					Fonts
-				</TabItem.Header>
-
-				<TabItem.Content>
-					<local:FontPage/>
-				</TabItem.Content>
-			</TabItem>
-
-			<TabItem
-				Style="{StaticResource TabItem}"
-			>
-				<TabItem.Header>
-					Images
+					<TextBlock
+						Style="{StaticResource IconTextBlock}"
+						VerticalAlignment="Center"
+						HorizontalAlignment="Center"
+					>
+						&#xf03e;
+					</TextBlock>
 				</TabItem.Header>
 
 				<TabItem.Content>
@@ -103,7 +96,31 @@
 				Style="{StaticResource TabItem}"
 			>
 				<TabItem.Header>
-					Settings
+					<TextBlock
+						Style="{StaticResource IconTextBlock}"
+						VerticalAlignment="Center"
+						HorizontalAlignment="Center"
+					>
+						&#xf031;
+					</TextBlock>
+				</TabItem.Header>
+
+				<TabItem.Content>
+					<local:FontPage/>
+				</TabItem.Content>
+			</TabItem>
+			
+			<TabItem
+				Style="{StaticResource TabItem}"
+			>
+				<TabItem.Header>
+					<TextBlock
+						Style="{StaticResource IconTextBlock}"
+						VerticalAlignment="Center"
+						HorizontalAlignment="Center"
+					>
+						&#xf085;
+					</TextBlock>
 				</TabItem.Header>
 
 				<TabItem.Content>

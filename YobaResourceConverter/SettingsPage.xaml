@@ -15,10 +15,16 @@
 >
     <Grid>
 		<ScrollViewer
-			Style="{StaticResource ScrollViewer}"	
-			Padding="{StaticResource ContentMargin}"
+			Style="{StaticResource ScrollViewer}"
+	>
+		<StackPanel
+			Margin="{StaticResource ContentMargin}"	
 		>
-			<StackPanel>
+				<TextBlock
+					Style="{StaticResource PageTitleTextBlock}"
+					Text="Settings"
+				/>
+				
 				<TextBlock
 					Style="{StaticResource TitleTextBlock}"
 					Text="YOBA include path (optional)"

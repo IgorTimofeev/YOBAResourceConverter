@@ -41,6 +41,7 @@ public class ImageSettingsJSON {
 	public string[]? Files = null;
 
 	public string? Namespace = null;
+	public string? CommonHeaderPath = null;
 }
 
 public class WindowSettingsJSON {

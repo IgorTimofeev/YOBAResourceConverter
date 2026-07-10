@@ -12,149 +12,193 @@
 	
 	d:DataContext="{d:DesignInstance local:ImagePage, IsDesignTimeCreatable=True}"
 	d:DesignWidth="500"
-	d:DesignHeight="450"
+	d:DesignHeight="850"
 >
-    <Grid>
-		<Grid.RowDefinitions>
-			<RowDefinition/>
-			<RowDefinition Height="Auto"/>
-		</Grid.RowDefinitions>
-
-		<ScrollViewer
-			Style="{StaticResource ScrollViewer}"	
-			Padding="{StaticResource ContentMargin}"
+	<ScrollViewer
+		Style="{StaticResource ScrollViewer}"
+	>
+		<StackPanel
+			Margin="{StaticResource ContentMargin}"	
 		>
-			<StackPanel>
-				<TextBlock
-					Style="{StaticResource TitleTextBlock}"
-					Text="Selected images"
-				/>
-				
-				<Grid
-					x:Name="ImagePreviewRoot"
-					Height="100"
-				>
-					<Border
-						BorderThickness="1"
-						BorderBrush="{StaticResource ThemeBg4}"
-						Background="Transparent"
-						CornerRadius="5"
-						Cursor="Hand"
-						PreviewMouseDown="OnImagePreviewMouseDown"
-					>
-						<TextBlock
-							x:Name="ImagePreviewPlaceholderText"
-							Style="{StaticResource TitleTextBlock}"
-							HorizontalAlignment="Center"
-							VerticalAlignment="Center"
-							Foreground="{StaticResource ThemeBg5}"
-							Text="Click to select"
-						/>	
-					</Border>
-					
-					<ScrollViewer
-						x:Name="ImagePreviewScrollViewer"
-						Style="{StaticResource ScrollViewer}"
-						HorizontalScrollBarVisibility="Auto"
-						VerticalScrollBarVisibility="Disabled"
-					>
-						<StackPanel
-							x:Name="ImagePreviewImagesPanel"
-							Orientation="Horizontal"
-							HorizontalAlignment="Center"
-							VerticalAlignment="Center"
-						/>
-					</ScrollViewer>
-					
-					<Border
-						x:Name="ImagePreviewScrollViewSelectionOverlay"
-						Background="Transparent"
-						Margin="0,0,0,15"
-						Cursor="Hand"
-						PreviewMouseDown="OnImagePreviewMouseDown"
-					/>
-				</Grid>
-				
-				<Grid>
-					<Grid.ColumnDefinitions>
-						<ColumnDefinition/>
-						<ColumnDefinition/>
-					</Grid.ColumnDefinitions>
-					
-					<StackPanel>
-						<TextBlock
-							Style="{StaticResource TitleTextBlock}"
-							Text="Mode"
-						/>
-
-						<ComboBox
-							Style="{StaticResource ComboBox}"
-							x:Name="ModeComboBox"
-							SelectionChanged="OnModeComboBoxSelectionChanged"
-						>
-							<ComboBox.Items>
-								<s:String>RGB 565</s:String>
-								<s:String>RGB 888</s:String>
-								<s:String>8 bit palette</s:String>
-							</ComboBox.Items>
-						</ComboBox>
-					</StackPanel>
-					
-					<StackPanel
-						Grid.Column="1"
-						Margin="10,0,0,0"
-					>
-						<TextBlock
-							Style="{StaticResource TitleTextBlock}"
-							Text="Endianness"
-						/>
-
-						<ComboBox
-							Style="{StaticResource ComboBox}"
-							x:Name="EndiannessComboBox"
-							SelectionChanged="OnEndiannessComboBoxSelectionChanged"
-						>
-							<ComboBox.Items>
-								<s:String>Little endian</s:String>
-								<s:String>Big endian</s:String>
-							</ComboBox.Items>
-						</ComboBox>
-					</StackPanel>
-				</Grid>
-
-				<TextBlock
-					x:Name="PaletteTitle"
-					Style="{StaticResource TitleTextBlock}"
-					Text="Comma-separated colors in 0xRRGGBB format. To ignore specific color, mark it as negative"
-				/>
+			<TextBlock
+				Style="{StaticResource PageTitleTextBlock}"
+				Text="Images"
+			/>
 			
-				<TextBox
-					Grid.Column="1"
-					Style="{StaticResource TextBox}"
-					x:Name="PaletteTextBox"
-					Text="0x000000, -0xFF00FF, 0xFFFFFF"
-				/>
+			<TextBlock
+				Style="{StaticResource DescriptionTextBlock}"
+			>
+				<TextBlock.Inlines>
+					<Run>
+						Select the images you want from the disk, along with the color model and endianness. During export, the program will convert them and save a set of header files to the specified directory
+					</Run>
+				</TextBlock.Inlines>
+			</TextBlock>
 				
-				<TextBlock
-					Style="{StaticResource TitleTextBlock}"
-					Text="Namespace (optional)"
+			<Grid
+				x:Name="ImagePreviewRoot"
+				Margin="0,10,0,0"
+				Height="100"
+			>
+				<Border
+					BorderThickness="1"
+					BorderBrush="{StaticResource ThemeBg4}"
+					Background="Transparent"
+					CornerRadius="5"
+					Cursor="Hand"
+					PreviewMouseDown="OnImagePreviewMouseDown"
+				>
+					<TextBlock
+						x:Name="ImagePreviewPlaceholderText"
+						Style="{StaticResource TitleTextBlock}"
+						HorizontalAlignment="Center"
+						VerticalAlignment="Center"
+						Foreground="{StaticResource ThemeBg5}"
+						Text="Click to select"
+					/>	
+				</Border>
+					
+				<ScrollViewer
+					x:Name="ImagePreviewScrollViewer"
+					Style="{StaticResource ScrollViewer}"
+					HorizontalScrollBarVisibility="Auto"
+					VerticalScrollBarVisibility="Disabled"
+				>
+					<StackPanel
+						x:Name="ImagePreviewImagesPanel"
+						Orientation="Horizontal"
+						HorizontalAlignment="Center"
+						VerticalAlignment="Center"
+					/>
+				</ScrollViewer>
+					
+				<Border
+					x:Name="ImagePreviewScrollViewSelectionOverlay"
+					Background="Transparent"
+					Margin="0,0,0,15"
+					Cursor="Hand"
+					PreviewMouseDown="OnImagePreviewMouseDown"
 				/>
+			</Grid>
 				
-				<TextBox
-					Style="{StaticResource TextBox}"
-					x:Name="NamespaceTextBox"
-					Text="yoba"
-					TextChanged="OnNamespaceTextBoxTextChanged"
-				/>
-			</StackPanel>
-		</ScrollViewer>
+			<Grid>
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition/>
+					<ColumnDefinition/>
+				</Grid.ColumnDefinitions>
+					
+				<StackPanel>
+					<TextBlock
+						Style="{StaticResource TitleTextBlock}"
+						Text="Color model"
+					/>
 
-		<Button
-			Grid.Row="1"
-			Style="{StaticResource Button}"
-			Margin="{StaticResource LowerPartMargin}"
-			Content="Export headers"
-			Click="OnSaveButtonClick"
-		/>
-	</Grid>
+					<ComboBox
+						Style="{StaticResource ComboBox}"
+						x:Name="ModeComboBox"
+						SelectionChanged="OnModeComboBoxSelectionChanged"
+					>
+						<ComboBox.Items>
+							<s:String>RGB 565</s:String>
+							<s:String>RGB 888</s:String>
+							<s:String>8 bit palette</s:String>
+						</ComboBox.Items>
+					</ComboBox>
+				</StackPanel>
+					
+				<StackPanel
+					Grid.Column="1"
+					Margin="10,0,0,0"
+				>
+					<TextBlock
+						Style="{StaticResource TitleTextBlock}"
+						Text="Endianness"
+					/>
+
+					<ComboBox
+						Style="{StaticResource ComboBox}"
+						x:Name="EndiannessComboBox"
+						SelectionChanged="OnEndiannessComboBoxSelectionChanged"
+					>
+						<ComboBox.Items>
+							<s:String>Little-endian</s:String>
+							<s:String>Big-endian</s:String>
+						</ComboBox.Items>
+					</ComboBox>
+				</StackPanel>
+			</Grid>
+
+			<TextBlock
+				x:Name="PaletteTitle"
+				Style="{StaticResource TitleTextBlock}"
+				Text="Comma-separated palette colors in 0xRRGGBB format. To ignore specific color, mark it as negative"
+			/>
+			
+			<TextBox
+				Grid.Column="1"
+				Style="{StaticResource TextBox}"
+				x:Name="PaletteTextBox"
+				Text="0x000000, -0xFF00FF, 0xFFFFFF"
+			/>
+				
+			<TextBlock
+				Style="{StaticResource TitleTextBlock}"
+				Text="Namespace (optional)"
+			/>
+				
+			<TextBox
+				Style="{StaticResource TextBox}"
+				x:Name="NamespaceTextBox"
+				Text=""
+				TextChanged="OnNamespaceTextBoxTextChanged"
+			/>
+				
+			<Button
+				Style="{StaticResource Button}"
+				Margin="0,15,0,0"
+				Content="Export image headers"
+				Click="OnSaveButtonClick"
+			/>
+				
+			<Rectangle
+				Style="{StaticResource Divider}"
+			/>
+				
+			<TextBlock
+				Style="{StaticResource PageTitleTextBlock}"
+				Text="General header"
+			/>
+			
+			<TextBlock
+				Style="{StaticResource DescriptionTextBlock}"
+			>
+				<TextBlock.Inlines>
+					<Run>
+						Allows to generate a single header file that includes all previously converted images into a class. It's very convenient for complex applications with a lots of images, where manually including each image becomes a real pain in the ass
+					</Run>
+				</TextBlock.Inlines>
+			</TextBlock>
+				
+			<TextBlock
+				Style="{StaticResource TitleTextBlock}"
+				Text="Images include path (optional)"
+			/>
+
+			<TextBox
+				Style="{StaticResource TextBox}"
+				x:Name="CommonHeaderPathTextBox"
+				Text=""
+				TextChanged="OnCommonHeaderPathTextBoxTextChanged"
+			/>
+				
+			<Button
+				Grid.Column="1"
+				Style="{StaticResource Button}"
+				Margin="0,15,0,0"
+				Content="Export general header"
+				Click="OnExportGenericButtonClick"
+			/>
+				
+		</StackPanel>
+	</ScrollViewer>
 </UserControl>

@@ -13,12 +13,16 @@
 
   <ItemGroup>
     <None Remove="Icon.ico" />
-    <None Remove="Images\Icon\Icon.png" />
-    <None Remove="Images\Icon\Icon.psd" />
+    <None Remove="Resources\Fonts\forkawesome-webfont.ttf" />
+    <None Remove="Resources\Images\Icon\Icon.png" />
+    <None Remove="Resources\Images\Icon\Icon.psd" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Icon.ico" />
+    <Content Include="Resources\Fonts\forkawesome-webfont.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -29,7 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Images\Icon\" />
+    <Folder Include="Resources\Images\Icon\" />
   </ItemGroup>
 
   <ItemGroup>
