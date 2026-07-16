@@ -100,8 +100,8 @@
 					>
 						<ComboBox.Items>
 							<s:String>RGB 565</s:String>
-							<s:String>RGB 888</s:String>
-							<s:String>8 bit palette</s:String>
+							<s:String>ARGB 888</s:String>
+							<s:String>Indexed 8 bit</s:String>
 						</ComboBox.Items>
 					</ComboBox>
 				</StackPanel>

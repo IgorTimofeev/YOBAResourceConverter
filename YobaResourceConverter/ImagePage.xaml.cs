@@ -35,18 +35,20 @@ public enum ColorModel : byte {
 	RGB565,
 	RGB666,
 	RGB888,
+	ARGB,
 	HSB,
 	Indexed8Bit
 }
 
 [Flags]
 public enum ImageOptions : byte {
-	None =        0b00000000,
-	Alpha1Bit =   0b00000010,
+	None =      0b00000000,
+	Alpha1Bit = 0b00000001,
+	Alpha8Bit = 0b00000010,
 }
 
 class ImageData {
-	public ColorModel ColorModel = ColorModel.RGB888;
+	public ColorModel ColorModel = ColorModel.ARGB;
 	public ImageOptions Options = ImageOptions.None;
 	public int Width = 0;
 	public int Height = 0;
@@ -285,40 +287,50 @@ public partial class ImagePage : UserControl {
 		}
 	}
 
-	static void ConvertRGB888(ImageData imageData, byte[] pixels) {
-		imageData.ColorModel = ColorModel.RGB888;
+	static void ConvertARGB(ImageData imageData, byte[] pixels) {
+		imageData.ColorModel = ColorModel.ARGB;
 
 		int bitmapByteIndex = 0;
 
 		// Checking for non-max alphas
-		int transparentPixelsCount = 0;
+		bool haveAlpha = false;
+		int alpha0PixelCount = 0;
 
 		for (int oc = 0; oc < pixels.Length; oc += 4) {
-			if (pixels[oc + 3] == 0) {
-				transparentPixelsCount++;
+			if (pixels[oc + 3] < 0xFF) {
+				haveAlpha = true;
+
+				if (pixels[oc + 3] == 0) {
+					alpha0PixelCount++;
+				}
 			}
 		}
 
-		var totalPixelsCount = imageData.Width * imageData.Height;
+		var totalPixelCount = imageData.Width * imageData.Height;
 
-		// Have transparent pixels
-		if (transparentPixelsCount > 0) {
-			imageData.Options |= ImageOptions.Alpha1Bit;
+		// Have alpha pixels
+		if (haveAlpha) {
+			imageData.Options |= ImageOptions.Alpha8Bit;
 
 			byte bitmapBitIndex = 0;
-			var nonTransparentPixelsCount = totalPixelsCount - transparentPixelsCount;
-			var bitsCount = transparentPixelsCount * 1 + nonTransparentPixelsCount * (1 + 8 * 3);
+			var alphaNot0PixelCount = totalPixelCount - alpha0PixelCount;
+			var bitCount = alpha0PixelCount * (1) + alphaNot0PixelCount * (1 + 8 * 4);
 
-			imageData.Bitmap = new byte[(int) Math.Ceiling(bitsCount / 8d)];
+			imageData.Bitmap = new byte[(int) Math.Ceiling(bitCount / 8d)];
 
 			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
 				// Transparent
 				if (pixels[pixelIndex + 3] == 0) {
+					// A
 					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 0, 1);
 				}
 				// Non-transparent
 				else {
+					// A
 					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, 1, 1);
+					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, pixels[pixelIndex + 3], 8);
+
+					// RGB
 					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, pixels[pixelIndex + 2], 8);
 					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, pixels[pixelIndex + 1], 8);
 					WriteBits(imageData, ref bitmapByteIndex, ref bitmapBitIndex, pixels[pixelIndex], 8);
@@ -327,7 +339,7 @@ public partial class ImagePage : UserControl {
 		}
 		// Haven't
 		else {
-			imageData.Bitmap = new byte[totalPixelsCount * 3];
+			imageData.Bitmap = new byte[totalPixelCount * 3];
 
 			for (int pixelIndex = 0; pixelIndex < pixels.Length; pixelIndex += 4) {
 				imageData.Bitmap[bitmapByteIndex++] = pixels[pixelIndex + 2];
@@ -441,7 +453,7 @@ public partial class ImagePage : UserControl {
 				break;
 
 			case ImageSettingsMode.RGB888:
-				ConvertRGB888(imageData, pixels);
+				ConvertARGB(imageData, pixels);
 				break;
 
 			default:
@@ -514,8 +526,9 @@ namespace {{App.Settings.Image.Namespace}} {
 			ColorModel.RGB565 => "RGB565",
 			ColorModel.RGB666 => "RGB666",
 			ColorModel.RGB888 => "RGB888",
+			ColorModel.ARGB => "ARGB",
 			ColorModel.HSB => "HSB",
-			_ => "indexed8Bit",
+			_ => "indexed8",
 		};
 
 		await streamWriter.WriteAsync($$"""
@@ -543,6 +556,7 @@ namespace {{App.Settings.Image.Namespace}} {
 		}
 
 		await writeOptionAsync(ImageOptions.Alpha1Bit, "alpha1Bit");
+		await writeOptionAsync(ImageOptions.Alpha8Bit, "alpha8Bit");
 
 		if (haveOptions) {
 			await streamWriter.WriteAsync($$"""
